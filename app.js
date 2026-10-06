@@ -23,6 +23,15 @@ const I={
   fiches:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   base:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
   cr:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>',
+  spaces:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l6-6M14 4l6 6"/><path d="M9 15l-4 4a2.1 2.1 0 0 0 3 3l4-4"/><path d="M12 6l6 6-5 5-6-6z"/><path d="M19 2l1.5 1.5M21 6l1 1M17 3l.5-1"/></svg>',
+  client:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>',
+  wa:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.4.1-.2 0-.3 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2 .6 2.7.5a2.3 2.3 0 0 0 1.5-1.1 1.9 1.9 0 0 0 .1-1.1c0-.1-.2-.2-.4-.3z"/></svg>',
   dir:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5M9 11h.01M15 11h.01M9 14h.01M15 14h.01"/></svg>',
   bea:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c-2 3-6 5-6 10a6 6 0 0 0 12 0c0-5-4-7-6-10z"/><path d="M12 21v-4"/></svg>',
   cui:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11h16M5 11a7 7 0 0 1 14 0"/><path d="M3 15h18M12 4v1"/></svg>',
@@ -234,30 +243,31 @@ function removePhoto(id,i){const c=checkOf(id);const p=(c.photos||[])[i];if(!p)r
 /* ---------- COMPTE RENDU ---------- */
 function renderCR(){
   const R=buildResume();const S=R.staff,C=R.checks,cl=R.clientes;
-  const line=(cls,title,txt,extra='')=>`<div class="crline ${cls}"><b>${esc(title)}</b><span>${txt}</span>${extra}</div>`;
-  const chips=(lbl,arr,cls)=>arr.length?`<div class="chiprow"><span class="lbl">${lbl}</span>${arr.map(x=>`<span class="chip ${cls}">${esc(x)}</span>`).join('')}</div>`:'';
+  const row=(cls,icon,title,sub,chip,extra='')=>`<div class="crrow ${cls}"><span class="cric">${icon}</span><div class="crmain"><b>${esc(title)}</b>${sub?`<span class="sub">${sub}</span>`:''}</div>${chip}${extra}</div>`;
+  const list=(lbl,arr)=>arr.length?`<p class="crlist"><b>${lbl} · ${arr.length}</b>${arr.map(esc).join(', ')}</p>`:'';
+  const head=(icon,title,chip)=>`<div class="ch crhead"><span class="ic">${icon}</span><h3>${title}</h3>${chip}</div>`;
   const by=st=>S.rows.filter(r=>r.st===st);const poste=r=>r.serv?r.serv.split(' · ')[0]:'';
   const staff=(S.rows.length?'':'<div class="empty">Liste du personnel à renseigner.</div>')
-    +by('late').map(r=>line('fix',r.nom,esc(poste(r)),`<span class="chip fix">Retard${r.arr?' · '+esc(hhmm(r.arr)):''}</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join('')
-    +by('abs').map(r=>line('urg',r.nom,esc(poste(r)),`<span class="chip urg">Absent</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join('')
-    +chips('Présents',by('ok').map(r=>r.nom+(r.arr?' · '+hhmm(r.arr):'')),'ok')+chips('Non prévus',by('np').map(r=>r.nom),'')+chips('Non renseignés',by('').map(r=>r.nom),'');
+    +by('late').map(r=>row('fix',I.clock,r.nom,esc(poste(r)),`<span class="chip fix">Retard${r.arr?' · '+esc(hhmm(r.arr)):''}</span>`,r.obs?`<div class="crextra">${esc(r.obs)}</div>`:'')).join('')
+    +by('abs').map(r=>row('urg',I.x,r.nom,esc(poste(r)),`<span class="chip urg">Absent</span>`,r.obs?`<div class="crextra">${esc(r.obs)}</div>`:'')).join('')
+    +list('Présents',by('ok').map(r=>r.nom+(r.arr?' ('+hhmm(r.arr)+')':'')))+list('Non prévus',by('np').map(r=>r.nom))+list('Non renseignés',by('').map(r=>r.nom));
   const items=C.groups.flatMap(g=>g.items);const of=st=>items.filter(i=>(i.s||'')===st);
-  const spaces=of('fix').map(i=>line('fix',i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip fix">À corriger</span>${i.photos?`<span class="msg photos">${(state.checks.items[i.id]?.photos||[]).map(p=>photoThumb(p,'mthumb')).join('')}</span>`:''}`)).join('')
-    +chips('À vérifier',of('').map(i=>i.label),'fix')+chips('Non concernés',of('na').map(i=>i.label),'')
-    +(of('ok').length===items.length?'<div class="verdict ok">✓ Tout est prêt.</div>':chips('Prêts',of('ok').map(i=>i.label),'ok'));
+  const spaces=of('fix').map(i=>row('fix',I.warn,i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip fix">À corriger</span>`,i.photos?`<div class="crextra photos">${(state.checks.items[i.id]?.photos||[]).map(p=>photoThumb(p,'mthumb')).join('')}</div>`:'')).join('')
+    +list('À vérifier',of('').map(i=>i.label))+list('Non concernés',of('na').map(i=>i.label))
+    +(items.length&&of('ok').length===items.length?`<div class="verdict ok">Tout est prêt.</div>`:list('Prêts',of('ok').map(i=>i.label)));
   const clientes=cl.rows.length?cl.rows.map(c=>{const bad=/Réclamation|Incident/.test(c.type);
-    return line(c.type?(bad?'urg':'ok'):'',(c.bracelet?'N° '+c.bracelet+' · ':'')+c.nom,[c.h?'arrivée '+hhmm(c.h):'',c.dep?'départ '+hhmm(c.dep):'',c.venue?c.venue.toLowerCase():'',c.montant!==null?fmt(c.montant)+' DH':''].filter(Boolean).map(esc).join(' · '),
-      `<span class="chip ${c.sentAt?'ok':''}">${c.sentAt?'💬 envoyé '+esc(hhmm(c.sentAt)):esc(c.statut)}</span>`
-      +(c.steps.length?`<span class="msg">${c.steps.map(s=>esc((s.time?hhmm(s.time)+' ':'')+s.act+(s.ok?' ✓':''))).join('  →  ')}</span>`:'')
-      +(c.type?`<span class="msg"><b>${esc(c.type)}</b>${c.motif?' : '+esc(c.motif):''}${c.rep?' — réponse : '+esc(c.rep):''} · ${c.traite?'traité':'à traiter'}</span>`:''))}).join(''):'<div class="empty">Aucune cliente renseignée aujourd\'hui.</div>';
-  const sum=(n,cls='')=>`<span class="chip ${cls}">${n}</span>`;
+    return row(c.type?(bad?'urg':'ok'):'',I.client,(c.bracelet?'N° '+c.bracelet+' · ':'')+c.nom,[c.h?'arrivée '+hhmm(c.h):'',c.dep?'départ '+hhmm(c.dep):'',c.venue?c.venue.toLowerCase():'',c.montant!==null?fmt(c.montant)+' DH':''].filter(Boolean).map(esc).join(' · '),
+      c.sentAt?`<span class="chip ok">${I.wa} ${esc(hhmm(c.sentAt))}</span>`:`<span class="chip">${esc(c.statut)}</span>`,
+      (c.steps.length?`<div class="crextra">${c.steps.map(s=>esc((s.time?hhmm(s.time)+' ':'')+s.act)+(s.ok?' <i class="okm">'+I.check+'</i>':'')).join('<span class="arr">→</span>')}</div>`:'')
+      +(c.type?`<div class="crextra ${bad?'bad':'good'}"><b>${esc(c.type)}</b>${c.motif?' : '+esc(c.motif):''}${c.rep?' — réponse : '+esc(c.rep):''} · ${c.traite?'traité':'à traiter'}</div>`:''))}).join(''):'<div class="empty">Aucune cliente renseignée aujourd\'hui.</div>';
+  const chip=(n,cls='')=>`<span class="chip ${cls}">${n}</span>`;
   return `<div class="card"><div class="ch"><h3>Compte rendu — ${longDate(day)}</h3><button class="pill" data-copy>Copier le texte</button>${navigator.share?'<button class="pill" data-share>Partager</button>':''}</div>
     <p class="note" style="margin:-6px 0 0">Généré à partir des saisies du jour. Sur le serveur AVA Bay, la même synthèse part par e-mail à 11h et 20h.</p>
     <div class="kpis"><div class="kpi ${S.abs?'urg':S.late?'fix':'ok'}"><b class="num">${S.ok+S.late}/${S.total}</b><span>Présents</span><small>${S.late} retard${S.late>1?'s':''} · ${S.abs} absent${S.abs>1?'s':''}</small></div><div class="kpi ${C.fix?'fix':'ok'}"><b class="num">${C.ready}/${C.n-C.na}</b><span>Espaces prêts</span><small>${C.fix} à corriger · ${C.todo} à vérifier</small></div><div class="kpi pole"><b class="num">${cl.n}</b><span>Clientes</span><small>${cl.sent} programme${cl.sent>1?'s':''} envoyé${cl.sent>1?'s':''}</small></div><div class="kpi ${cl.retours.some(r=>/Réclamation|Incident/.test(r.type))?'urg':''}"><b class="num">${cl.retours.length}</b><span>Retours</span><small>${cl.depense?fmt(cl.depense)+' DH de dépense':'—'}</small></div></div></div>
-    <div class="card"><div class="ch"><h3>👥 Personnel</h3>${sum(`${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`,S.abs?'urg':'ok')}</div><div class="crsec">${staff}</div></div>
-    <div class="card"><div class="ch"><h3>🧹 Contrôle des espaces</h3>${sum(`${C.ready}/${C.n-C.na} prêts`,C.fix?'fix':'ok')}</div><div class="crsec">${spaces}</div></div>
-    <div class="card"><div class="ch"><h3>👩 Clientes</h3>${sum(`${cl.n} fiche${cl.n>1?'s':''}${cl.sent?' · '+cl.sent+' envoi'+(cl.sent>1?'s':''):''}`,'pole')}</div><div class="crsec">${clientes}</div></div>
-    <div class="card"><h3>📝 Bilan / priorités de demain</h3><p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
+    <div class="card">${head(I.users,'Personnel',chip(`${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`,S.abs?'urg':S.late?'fix':'ok'))}<div class="crsec">${staff}</div></div>
+    <div class="card">${head(I.spaces,'Contrôle des espaces',chip(`${C.ready}/${C.n-C.na} prêts`,C.fix?'fix':'ok'))}<div class="crsec">${spaces}</div></div>
+    <div class="card">${head(I.client,'Clientes',chip(`${cl.n} fiche${cl.n>1?'s':''}${cl.sent?' · '+cl.sent+' envoi'+(cl.sent>1?'s':''):''}`,'pole'))}<div class="crsec">${clientes}</div></div>
+    <div class="card">${head(I.note,'Bilan / priorités de demain',chip(R.bilan.note?'renseigné':'à renseigner',R.bilan.note?'ok':''))}<p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
     <div class="card"><div class="ch"><h3>Version texte</h3><span class="note">à coller dans WhatsApp ou un e-mail</span></div><pre class="crtext" id="crtext">${esc(R.text)}</pre></div>`;
 }
 
