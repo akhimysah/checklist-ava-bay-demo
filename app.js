@@ -91,32 +91,33 @@ function buildResume(){
   const bilan={note:state.bilan.note||''};
   return {date:day,staff,checks,clientes,messages,bilan,text:reportText({staff,checks,clientes,messages,bilan})};
 }
-/* version texte du compte rendu (copie / partage) : l'essentiel d'abord, le reste regroupé */
+/* version texte du compte rendu (copie / partage) : sans emoji, l'essentiel d'abord, le reste regroupé */
 function reportText(R){
   const S=R.staff,C=R.checks;const by=st=>S.rows.filter(r=>r.st===st);const poste=r=>r.serv?r.serv.split(' · ')[0]:'';
   const who=r=>r.nom+(poste(r)?' ('+poste(r)+')':'');const names=a=>a.map(r=>r.nom).join(', ');
-  const L=['🏝 AVA BAY — COMPTE RENDU DU JOUR','📅 '+longDate(day),''];
-  L.push(`👥 PERSONNEL — ${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`);
-  by('late').forEach(r=>L.push(`⏰ ${who(r)} — retard${r.arr?' '+hhmm(r.arr):''}${r.obs?' · '+r.obs:''}`));
-  by('abs').forEach(r=>L.push(`❌ ${who(r)} — absent${r.obs?' · '+r.obs:''}`));
-  if(by('ok').length)L.push(`✅ Présents : ${names(by('ok'))}`);
-  if(by('np').length)L.push(`➖ Non prévus : ${names(by('np'))}`);
-  if(by('').length)L.push(`❔ Non renseignés : ${names(by(''))}`);
-  if(!S.rows.length)L.push('Liste du personnel à renseigner.');
+  const T=(t,sub)=>{L.push(t.toUpperCase()+(sub?' — '+sub:''))};const i1='  ',i2='      ';
+  const L=['AVA BAY — COMPTE RENDU DU JOUR',longDate(day),''];
+  T('Personnel',`${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`);
+  by('late').forEach(r=>L.push(`${i1}Retard : ${who(r)}${r.arr?' · '+hhmm(r.arr):''}${r.obs?' · '+r.obs:''}`));
+  by('abs').forEach(r=>L.push(`${i1}Absent : ${who(r)}${r.obs?' · '+r.obs:''}`));
+  if(by('ok').length)L.push(`${i1}Présents : ${names(by('ok'))}`);
+  if(by('np').length)L.push(`${i1}Non prévus : ${names(by('np'))}`);
+  if(by('').length)L.push(`${i1}Non renseignés : ${names(by(''))}`);
+  if(!S.rows.length)L.push(i1+'Liste du personnel à renseigner.');
   const items=C.groups.flatMap(g=>g.items);const of=st=>items.filter(i=>(i.s||'')===st);
-  L.push('',`🧹 CONTRÔLE DES ESPACES — ${C.ready}/${C.n-C.na} prêts${C.fix?` · ${C.fix} à corriger`:''}`);
-  of('fix').forEach(i=>L.push(`⚠️ ${i.label}${i.note?' — '+i.note:''}${i.r?' → '+i.r:''}${i.h?' ('+hhmm(i.h)+')':''}${i.photos?` · ${i.photos} photo${i.photos>1?'s':''}`:''}`));
-  if(of('').length)L.push(`❔ À vérifier : ${of('').map(i=>i.label).join(', ')}`);
-  if(of('na').length)L.push(`➖ Non concernés : ${of('na').map(i=>i.label).join(', ')}`);
-  if(of('ok').length)L.push(of('ok').length===items.length?'✅ Tout est prêt.':`✅ Prêts : ${of('ok').map(i=>i.label).join(', ')}`);
+  L.push('');T('Contrôle des espaces',`${C.ready}/${C.n-C.na} prêts${C.fix?` · ${C.fix} à corriger`:''}`);
+  of('fix').forEach(i=>L.push(`${i1}À corriger : ${i.label}${i.note?' — '+i.note:''}${i.r?' → '+i.r:''}${i.h?' ('+hhmm(i.h)+')':''}${i.photos?` · ${i.photos} photo${i.photos>1?'s':''}`:''}`));
+  if(of('').length)L.push(`${i1}À vérifier : ${of('').map(i=>i.label).join(', ')}`);
+  if(of('na').length)L.push(`${i1}Non concernés : ${of('na').map(i=>i.label).join(', ')}`);
+  if(of('ok').length)L.push(of('ok').length===items.length?i1+'Tout est prêt.':`${i1}Prêts : ${of('ok').map(i=>i.label).join(', ')}`);
   const cl=R.clientes;
-  L.push('',`👩 CLIENTES — ${cl.n} fiche${cl.n>1?'s':''}${cl.sent?` · ${cl.sent} programme${cl.sent>1?'s':''} envoyé${cl.sent>1?'s':''}`:''}${cl.depense?` · ${fmt(cl.depense)} DH`:''}`);
-  if(!cl.rows.length)L.push('Aucune cliente renseignée.');
-  cl.rows.forEach(c=>{L.push(`• ${c.bracelet?'N° '+c.bracelet+' · ':''}${c.nom}${c.h?' · arrivée '+hhmm(c.h):''}${c.dep?' · départ '+hhmm(c.dep):''}${c.venue?' · '+c.venue.toLowerCase():''}`);
-    if(c.steps.length)L.push(`   ${c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' ✓':''}`).join(' → ')}`);
-    if(c.sentAt)L.push(`   💬 Programme envoyé sur WhatsApp à ${hhmm(c.sentAt)}`);
-    if(c.type)L.push(`   ${/Réclamation|Incident/.test(c.type)?'🔴':'🟢'} ${c.type}${c.motif?' : '+c.motif:''}${c.rep?' — réponse : '+c.rep:''} (${c.traite?'traité':'à traiter'})`)});
-  L.push('','📝 BILAN / PRIORITÉS DE DEMAIN',R.bilan.note||'Non renseigné.');
+  L.push('');T('Clientes',`${cl.n} fiche${cl.n>1?'s':''}${cl.sent?` · ${cl.sent} programme${cl.sent>1?'s':''} envoyé${cl.sent>1?'s':''}`:''}${cl.depense?` · ${fmt(cl.depense)} DH`:''}`);
+  if(!cl.rows.length)L.push(i1+'Aucune cliente renseignée.');
+  cl.rows.forEach((c,k)=>{if(k)L.push('');L.push(`${i1}${c.bracelet?'N° '+c.bracelet+' · ':''}${c.nom}${c.h?' · arrivée '+hhmm(c.h):''}${c.dep?' · départ '+hhmm(c.dep):''}${c.venue?' · '+c.venue.toLowerCase():''}`);
+    if(c.steps.length)L.push(`${i2}${c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' (confirmé)':''}`).join(' → ')}`);
+    if(c.sentAt)L.push(`${i2}Programme envoyé sur WhatsApp à ${hhmm(c.sentAt)}`);
+    if(c.type)L.push(`${i2}${c.type}${c.motif?' : '+c.motif:''}${c.rep?' — réponse : '+c.rep:''} · ${c.traite?'traité':'à traiter'}`)});
+  L.push('');T('Bilan / priorités de demain');L.push(i1+(R.bilan.note||'Non renseigné.').replace(/\n/g,'\n'+i1));
   return L.join('\n');
 }
 function flush(){
