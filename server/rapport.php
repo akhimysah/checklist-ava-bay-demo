@@ -127,6 +127,13 @@ if (!$R) {
         . ($r['type'] ? '<br>' . pill($r['type'], $bad ? $C['urg'][0] : $C['ok'][0], $bad ? $C['urg'][1] : $C['ok'][1]) . ' ' . e($r['motif']) . ($r['rep'] ? ' — réponse : ' . e($r['rep']) : '') . ' <span style="color:#6B5B50">· ' . ($r['traite'] ? 'traité' : 'à traiter') . '</span>' : ''));
   }
 
+  /* --- WhatsApp marketing (campagnes et rappels envoyés dans la journée) --- */
+  $mk = $R['marketing'] ?? null;
+  if ($mk && !empty($mk['rows'])) {
+    $b .= h2('WhatsApp marketing — ' . (int)$mk['sent'] . ' message(s) envoyé(s)');
+    foreach ($mk['rows'] as $m) $b .= card('#25D366', '<b>' . e($m['nom']) . '</b> <span style="color:#6B5B50">· ' . e($m['kind']) . (!empty($m['camp']) ? ' « ' . e($m['camp']) . ' »' : '') . ' · ' . e(hm(substr($m['t'], 11, 5))) . '</span>');
+  }
+
   /* --- bilan / priorités --- */
   $b .= h2('Bilan / priorités de demain');
   $b .= ($R['bilan']['note'] ?? '') !== '' ? '<p style="margin:4px 0;white-space:pre-wrap">' . e($R['bilan']['note']) . '</p>' : '<p style="color:#6B5B50;margin:4px 0">Non renseigné.</p>';

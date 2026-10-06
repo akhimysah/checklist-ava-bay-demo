@@ -38,7 +38,7 @@ const I={
   ani:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 13s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>',
   ent:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M14 3l4 4-9 9H5v-4z"/></svg>',
 };
-const VIEWS=[['jour','Journée',I.jour],['fiches','Clientes du jour',I.fiches],['base','Base clientes',I.base],['cr','Compte rendu',I.cr]];
+const VIEWS=[['jour','Journée',I.jour],['fiches','Clientes du jour',I.fiches],['base','Base clientes',I.base],['wa','WhatsApp',I.wa],['cr','Compte rendu',I.cr]];
 
 /* ---------- checklist du jour ---------- */
 const CHECK_ITEMS={};CHECKS.forEach(g=>g.items.forEach(([id,label])=>{CHECK_ITEMS[id]={id,label,group:g}}));
@@ -54,6 +54,8 @@ let open=new Set(),detail=new Set(),editMember=null,clientQ='';
 let db=null,dbUnsub=null,teamUnsub=null,clientsUnsub=null;
 let dirty=false,dirtyTeam=false,dirtyClients=false,writeTimer=null,writing=Promise.resolve(),lastEditAt=0;
 let photos={};try{photos=JSON.parse(localStorage.getItem(LS+'photos')||'{}')}catch(e){}
+/* WhatsApp marketing : campagnes, réglages des rappels, journal des envois (document partagé, comme la base clientes) */
+let mk=null,dirtyMk=false,mkUnsub=null,mkOpen=null;
 const MAX_PHOTOS=4;
 
 function blank(){return {regs:{staff:[],client:[]},checks:{items:{}},bilan:{note:''}}}
@@ -67,12 +69,13 @@ function checkOf(id){const it=state.checks.items;return it[id]||(it[id]={})}
 
 /* ---------- persistance ---------- */
 function loadLocal(d){try{const j=localStorage.getItem(lsKey(d));return j?norm(JSON.parse(j)):null}catch(e){return null}}
-function saveLocal(){try{localStorage.setItem(lsKey(day),JSON.stringify(state));localStorage.setItem(LS+'team',JSON.stringify(team));localStorage.setItem(LS+'clients',JSON.stringify(clients))}catch(e){}}
+function saveLocal(){try{localStorage.setItem(lsKey(day),JSON.stringify(state));localStorage.setItem(LS+'team',JSON.stringify(team));localStorage.setItem(LS+'clients',JSON.stringify(clients));if(mk)localStorage.setItem(LS+'marketing',JSON.stringify(mk))}catch(e){}}
 function setSync(cls,txt){const el=$('#sync');el.className='sync '+cls;el.innerHTML='<span>'+txt+'</span>'}
 function schedule(){lastEditAt=Date.now();setSync('saving','Enregistrement…');clearTimeout(writeTimer);writeTimer=setTimeout(flush,700)}
 function persist(){saveLocal();if(!db)return;dirty=true;schedule()}
 function persistTeam(){saveLocal();if(!db)return;dirtyTeam=true;schedule()}
 function persistClients(){saveLocal();if(!db)return;dirtyClients=true;schedule()}
+function persistMk(){saveLocal();if(!db)return;dirtyMk=true;schedule()}
 
 /* ---------- résumé du jour (compte rendu) ----------
    Lu par le serveur (rapport.php) pour les e-mails de 11h et 20h, et affiché dans l'onglet Compte rendu. */
@@ -89,7 +92,9 @@ function buildResume(){
     retours:fr.filter(f=>f.type).map(f=>({nom:ficheName(f),bracelet:f.bracelet||'',type:RT[f.type]||f.type,motif:f.motif||'',rep:f.rep||'',traite:f.st==='done'}))};
   const messages=fr.filter(f=>f.sentAt).map(f=>({nom:ficheName(f),tel:waPretty(f.tel)||f.tel||'',canal:'WhatsApp',sentAt:f.sentAt,body:waMessage(f)}));
   const bilan={note:state.bilan.note||''};
-  return {date:day,staff,checks,clientes,messages,bilan,text:reportText({staff,checks,clientes,messages,bilan})};
+  const mlog=(mk?mk.log:[]).filter(l=>!l.skipped&&(l.t||'').slice(0,10)===day);
+  const marketing={sent:mlog.length,rows:mlog.slice().reverse().map(l=>({nom:l.nom||'',kind:MK_KIND[l.kind]||l.kind||'',camp:l.camp||'',t:l.t||''}))};
+  return {date:day,staff,checks,clientes,messages,marketing,bilan,text:reportText({staff,checks,clientes,messages,marketing,bilan})};
 }
 /* version texte du compte rendu (copie / partage) : sans emoji, l'essentiel d'abord, le reste regroupé */
 function reportText(R){
@@ -117,17 +122,19 @@ function reportText(R){
     if(c.steps.length)L.push(`${i2}${c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' (confirmé)':''}`).join(' → ')}`);
     if(c.sentAt)L.push(`${i2}Programme envoyé sur WhatsApp à ${hhmm(c.sentAt)}`);
     if(c.type)L.push(`${i2}${c.type}${c.motif?' : '+c.motif:''}${c.rep?' — réponse : '+c.rep:''} · ${c.traite?'traité':'à traiter'}`)});
+  const mkR=R.marketing;if(mkR&&mkR.rows.length){L.push('');T('WhatsApp marketing',`${mkR.sent} message${mkR.sent>1?'s':''} envoyé${mkR.sent>1?'s':''}`);mkR.rows.forEach(m=>L.push(`${i1}${hhmm(m.t.slice(11,16))} ${m.nom} · ${m.kind}${m.camp?' « '+m.camp+' »':''}`))}
   L.push('');T('Bilan / priorités de demain');L.push(i1+(R.bilan.note||'Non renseigné.').replace(/\n/g,'\n'+i1));
   return L.join('\n');
 }
 function flush(){
   if(!db)return;const jobs=[];const stamp=o=>{o.updatedAt=new Date().toISOString();return o};
-  if(dirty||dirtyTeam||dirtyClients||forceResume){forceResume=false;try{const r=buildResume();const j=JSON.stringify(r);if(j!==lastResume){lastResume=j;jobs.push(()=>db.doc('jours/jour-'+r.date+'/parts/resume').set(stamp(JSON.parse(j))))}}catch(e){console.warn('resume',e)}}
+  if(dirty||dirtyTeam||dirtyClients||dirtyMk||forceResume){forceResume=false;try{const r=buildResume();const j=JSON.stringify(r);if(j!==lastResume){lastResume=j;jobs.push(()=>db.doc('jours/jour-'+r.date+'/parts/resume').set(stamp(JSON.parse(j))))}}catch(e){console.warn('resume',e)}}
   if(dirty){dirty=false;const d=day;for(const k of PARTS){const j=JSON.stringify(partGet(k));if(lastWritten[k]===j)continue;lastWritten[k]=j;const body=stamp(JSON.parse(j));body.date=d;body.part=k;jobs.push(()=>db.doc('jours/jour-'+d+'/parts/'+k).set(body))}}
   if(dirtyTeam){dirtyTeam=false;jobs.push(()=>db.doc('equipe/liste').set(stamp(JSON.parse(JSON.stringify(team)))))}
   if(dirtyClients){dirtyClients=false;jobs.push(()=>db.doc('clients/liste').set(stamp(JSON.parse(JSON.stringify(clients)))))}
+  if(dirtyMk){dirtyMk=false;jobs.push(()=>db.doc('marketing/campagnes').set(stamp(clone(mk))))}
   if(!jobs.length)return;
-  writing=writing.then(()=>Promise.all(jobs.map(j=>j()))).then(()=>{if(!dirty&&!dirtyTeam&&!dirtyClients)setSync('on','Synchronisé')}).catch(e=>{console.warn(e);setSync('','Hors ligne (local)')});
+  writing=writing.then(()=>Promise.all(jobs.map(j=>j()))).then(()=>{if(!dirty&&!dirtyTeam&&!dirtyClients&&!dirtyMk)setSync('on','Synchronisé')}).catch(e=>{console.warn(e);setSync('','Hors ligne (local)')});
 }
 function hasData(st){return Object.keys(st.checks.items).length||st.regs.staff.length||st.regs.client.length||!!st.bilan.note}
 function subscribeDay(){
@@ -151,6 +158,8 @@ function subscribeGlobals(){
   if(!db)return;
   teamUnsub=teamUnsub||subDoc('equipe/liste',()=>team,v=>team=v,()=>dirtyTeam=true);
   clientsUnsub=clientsUnsub||subDoc('clients/liste',()=>clients,v=>clients=v,()=>dirtyClients=true);
+  mkUnsub=mkUnsub||db.doc('marketing/campagnes').onSnapshot(snap=>{if(snap.metadata.hasPendingWrites)return;
+    if(snap.exists){const d=clone(snap.data());delete d.updatedAt;const n=normMk(d);if(JSON.stringify(n)!==JSON.stringify(mk)){mk=n;saveLocal();render()}}else if(mk.campaigns.length||mk.log.length){dirtyMk=true;flush()}},e=>console.warn(e));
 }
 function switchDay(d){flush();day=d;$('#date').value=d;state=loadLocal(d)||blank();detail=new Set();fiche=null;render();subscribeDay()}
 
@@ -162,18 +171,18 @@ function pStatus(r){if(!r)return '';if(r.np)return 'np';if(r.present===false)ret
 function staffStats(){const t={total:0,ok:0,late:0,abs:0,np:0,todo:0};team.rows.forEach(m=>{if(!fullName(m))return;t.total++;const q=pStatus(staffRow(m));if(q)t[q]++;else t.todo++});return t}
 
 /* ---------- rendu ---------- */
-function go(v){view=v;clientOpen=null;fiche=null;render();window.scrollTo({top:0,behavior:'instant'})}
+function go(v){view=v;clientOpen=null;fiche=null;if(v!=='wa')mkOpen=null;render();window.scrollTo({top:0,behavior:'instant'})}
 function render(){
   $('#date').value=day;
   $('#teamlist').innerHTML=[...new Set(team.rows.map(fullName).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('');
   $('#seclist').innerHTML=[...new Set(team.rows.map(m=>m.sec).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('');
   $('#clientlist').innerHTML=clients.rows.map(c=>c.nom).filter(Boolean).map(n=>`<option value="${esc(n)}">`).join('');
   const cs=checkStats(),ss=staffStats(),nf=state.regs.client.length;
-  const counts={jour:cs.fix?`${cs.fix} à corriger`:`${cs.ok}/${cs.n-cs.na}`,fiches:nf||'',base:clients.rows.length||'',cr:''};
+  const mkp=mkPending();const counts={jour:cs.fix?`${cs.fix} à corriger`:`${cs.ok}/${cs.n-cs.na}`,fiches:nf||'',base:clients.rows.length||'',wa:mkp||'',cr:''};
   const tabs=`<div class="subtabs main" role="tablist">${VIEWS.map(([k,l])=>`<button role="tab" data-view="${k}" aria-selected="${view===k}">${l}${counts[k]!==''?`<span class="n num">${counts[k]}</span>`:''}${k==='jour'&&(cs.fix||ss.abs)?'<span class="dot"></span>':''}</button>`).join('')}</div>`;
-  const body=view==='jour'?renderJour():view==='fiches'?renderFiches():view==='base'?renderClients():renderCR();
+  const body=view==='jour'?renderJour():view==='fiches'?renderFiches():view==='base'?renderClients():view==='wa'?renderWA():renderCR();
   $('#view').innerHTML=tabs+body;
-  renderBnav();
+  renderBnav(mkp);
 }
 
 /* ---------- JOURNÉE ---------- */
@@ -268,6 +277,7 @@ function renderCR(){
     <div class="card">${head(I.users,'Personnel',chip(`${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`,S.abs?'urg':S.late?'fix':'ok'))}<div class="crsec">${staff}</div></div>
     <div class="card">${head(I.spaces,'Contrôle des espaces',chip(`${C.ready}/${C.n-C.na} prêts`,C.fix?'fix':'ok'))}<div class="crsec">${spaces}</div></div>
     <div class="card">${head(I.client,'Clientes',chip(`${cl.n} fiche${cl.n>1?'s':''}${cl.sent?' · '+cl.sent+' envoi'+(cl.sent>1?'s':''):''}`,'pole'))}<div class="crsec">${clientes}</div></div>
+    ${R.marketing.rows.length?`<div class="card">${head(I.wa,'WhatsApp marketing',chip(`${R.marketing.sent} message${R.marketing.sent>1?'s':''}`,'ok'))}<div class="crsec">${R.marketing.rows.map(m=>row('ok',I.wa,m.nom,esc(m.kind+(m.camp?' « '+m.camp+' »':'')),`<span class="chip ok">${esc(hhmm(m.t.slice(11,16)))}</span>`)).join('')}</div></div>`:''}
     <div class="card">${head(I.note,'Bilan / priorités de demain',chip(R.bilan.note?'renseigné':'à renseigner',R.bilan.note?'ok':''))}<p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
     <div class="card"><div class="ch"><h3>Version texte</h3><span class="note">à coller dans WhatsApp ou un e-mail</span></div><pre class="crtext" id="crtext">${esc(R.text)}</pre></div>`;
 }
@@ -398,7 +408,7 @@ function renderClients(){
       ${opn?`<div class="ce"><div class="fields">
         <label class="m">Nom complet<input data-c="nom" value="${esc(c.nom||'')}"></label><label class="m">Téléphone<input type="tel" data-c="tel" value="${esc(c.tel||'')}" inputmode="tel"></label><label class="m">E-mail<input type="email" data-c="email" value="${esc(c.email||'')}"></label>
         <label class="m">Instagram<input data-c="social" value="${esc(c.social||'')}" placeholder="@…"></label><label class="m">Snapchat<input data-c="snap" value="${esc(c.snap||'')}"></label><label class="m">TikTok<input data-c="tiktok" value="${esc(c.tiktok||'')}"></label><label class="m">Facebook<input data-c="fb" value="${esc(c.fb||'')}"></label>
-        <label class="m">Profil<input data-c="segment" list="seglist" value="${esc(c.segment||'')}" placeholder="Prospect, Influenceuse…"></label><label class="m">Localisation<input data-c="loc" list="loclist" value="${esc(c.loc||'')}" placeholder="Locale, Expatriée…"></label><label class="chk"><input type="checkbox" data-c="verify" ${c.verify?'checked':''}>À vérifier</label><label class="s">Anniversaire<input type="text" data-c="bday" value="${esc(bdayShow(c.bday))}" placeholder="jj/mm ou jj/mm/aaaa" inputmode="numeric" maxlength="10" autocomplete="off"></label><label class="chk"><input type="checkbox" data-c="vip" ${c.vip?'checked':''}>VIP / habituée</label>
+        <label class="m">Profil<input data-c="segment" list="seglist" value="${esc(c.segment||'')}" placeholder="Prospect, Influenceuse…"></label><label class="m">Localisation<input data-c="loc" list="loclist" value="${esc(c.loc||'')}" placeholder="Locale, Expatriée…"></label><label class="chk"><input type="checkbox" data-c="verify" ${c.verify?'checked':''}>À vérifier</label><label class="chk"><input type="checkbox" data-c="nowa" ${c.nowa?'checked':''}>Pas de WhatsApp marketing</label><label class="s">Anniversaire<input type="text" data-c="bday" value="${esc(bdayShow(c.bday))}" placeholder="jj/mm ou jj/mm/aaaa" inputmode="numeric" maxlength="10" autocomplete="off"></label><label class="chk"><input type="checkbox" data-c="vip" ${c.vip?'checked':''}>VIP / habituée</label>
         <label class="wide">Préférences, allergies, habitudes<input data-c="pref" value="${esc(c.pref||'')}" placeholder="Soin préféré, table habituelle, allergie…"></label><label class="wide">Notes<textarea data-c="notes" placeholder="Remarques, enfants, ce qu'elle aime…">${esc(c.notes||'')}</textarea></label></div>
         <div class="hist2">${v.length?`<h4>Historique des visites</h4>${v.map(x=>`<div class="hv"><b>${fmtDate(x.date)}</b><span>${x.acts&&x.acts.length?esc(x.acts.join(' · ')):'visite'}</span>${x.montant?`<span class="num">${esc(x.montant)} DH</span>`:''}${x.type?`<span class="chip ${CTYPE[x.type]?.[1]||''}">${CTYPE[x.type]?.[0]||''}${x.motif?' — '+esc(String(x.motif).slice(0,50)):''}</span>`:''}</div>`).join('')}`:'<p class="note" style="margin:0">Aucune visite enregistrée.</p>'}</div>
         <div class="confirm"><button class="pill" data-newfrom="${c.id}">+ Fiche du jour pour cette cliente</button><span style="flex:1"></span><button class="danger" data-delclient="${c.id}">Supprimer la cliente</button><button data-closecl>Fermer</button></div></div>`:''}</div>`};
@@ -408,6 +418,94 @@ function renderClients(){
     <p class="note" style="margin:-4px 0 0">Touche une cliente pour modifier sa fiche, voir ses visites, l'appeler ou lui créer sa fiche du jour. Les clientes des fiches du jour sont ajoutées automatiquement.</p>
     <div class="cls">${filtered.length?filtered.map(row).join(''):`<div class="empty">${q?'Aucune cliente ne correspond.':'Aucune cliente dans cette vue.'}</div>`}</div></div>`;
 }
+
+
+/* ---------- WHATSAPP MARKETING ----------
+   Campagnes (offre, événement, nouveauté…) envoyées cliente par cliente depuis le WhatsApp de la tablette,
+   rappels automatiques (anniversaire, merci après la visite, relance) et notifications quand il est l'heure d'envoyer. */
+const MK_DEF={campaigns:[],auto:{bday:true,thanks:true,back:true,sched:true,backDays:30,hour:'10:00'},log:[]};
+function normMk(o){o=o||{};return {campaigns:Array.isArray(o.campaigns)?o.campaigns:[],auto:Object.assign(clone(MK_DEF.auto),o.auto||{}),log:Array.isArray(o.log)?o.log:[]}}
+mk=normMk(null);
+const MK_AUD=[['all','Toutes les clientes'],['vip','VIP'],['influ','Influenceuses'],['month','Venues ce mois'],['new','Une seule visite'],['back','Pas revenues'],['bday','Anniversaire ce mois']];
+const MK_KIND={bday:'Anniversaire',thanks:'Merci pour la visite',back:'Relance',camp:'Campagne'};
+const nowLocal=()=>todayISO()+'T'+new Date().toTimeString().slice(0,5);
+function dateShift(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+function bdayMD(v){v=String(v||'').trim();let m=/^\d{4}-(\d{2})-(\d{2})/.exec(v);if(m)return m[1]+'-'+m[2];m=/^(\d{2})\/(\d{2})/.exec(v);if(m)return m[2]+'-'+m[1];return ''}
+const firstName=c=>((c.nom||'').trim().split(/\s+/)[0]||'');
+function mkText(msg,c){return String(msg||'').replace(/\{prenom\}/gi,firstName(c)||'Madame').replace(/\{nom\}/gi,(c.nom||'').trim()||'Madame')}
+function mkReach(){return clients.rows.filter(c=>!c.nowa&&waNumber(c.tel).length>=11)}
+function mkAudience(aud){const today=todayISO(),month=today.slice(0,7),lim=dateShift(today,-(mk.auto.backDays||30));
+  return mkReach().filter(c=>{if(!aud||aud==='all')return true;const v=clientVisits(c);const last=v[0]?.date||'';
+    if(aud==='vip')return !!c.vip;if(aud==='influ')return /influ|créatrice/i.test(c.segment||'');if(aud==='month')return v.some(x=>x.date.startsWith(month));
+    if(aud==='new')return v.length===1;if(aud==='back')return !!last&&last<lim;if(aud==='bday')return bdayMD(c.bday).slice(0,2)===month.slice(5,7);return true})}
+function mkTpl(id){return WA_TEMPLATES.find(t=>t.id===id)||WA_TEMPLATES[0]}
+function mkLink(c,msg){return `https://wa.me/${waNumber(c.tel)}?text=${encodeURIComponent(mkText(msg,c))}`}
+function mkLog(e){mk.log.unshift(Object.assign({t:nowLocal()},e));if(mk.log.length>2000)mk.log.length=2000;forceResume=true;persistMk()}
+function mkStatus(c){const aud=mkAudience(c.aud);const sent=aud.filter(x=>c.sent?.[x.id]).length,skip=aud.filter(x=>c.skip?.[x.id]).length;const now=nowLocal();
+  let st;if(aud.length&&sent+skip>=aud.length)st='done';else if(c.when&&c.when>now)st='sched';else if(sent)st='live';else if(c.when)st='due';else st='draft';
+  return {st,label:{draft:'Brouillon',sched:'Programmée',due:'À envoyer',live:'En cours',done:'Terminée'}[st],aud,sent,skip,n:aud.length}}
+const mkChip=st=>st==='done'?'ok':st==='due'||st==='live'?'fix':st==='sched'?'pole':'';
+function mkReminders(){const today=todayISO(),y=dateShift(today,-1),lim=dateShift(today,-(mk.auto.backDays||30));const out=[];const has=k=>mk.log.some(l=>l.key===k);
+  for(const c of mkReach()){const v=clientVisits(c);const last=v[0]?.date||'';
+    if(mk.auto.bday&&bdayMD(c.bday)===today.slice(5)){const key=today+':bday:'+c.id;out.push({key,kind:'bday',c,done:has(key)})}
+    if(mk.auto.thanks&&v.some(x=>x.date===y)){const key=today+':thanks:'+c.id;out.push({key,kind:'thanks',c,done:has(key)})}
+    if(mk.auto.back&&last&&last<lim&&!mk.log.some(l=>l.kind==='back'&&l.cid===c.id&&(l.t||'').slice(0,10)>lim)){const key=today+':back:'+c.id;out.push({key,kind:'back',c,done:false})}}
+  return out}
+function mkDue(){return mk.campaigns.filter(c=>{const s=mkStatus(c).st;return s==='due'||s==='live'})}
+function mkPending(){if(!mk)return 0;return mkReminders().filter(r=>!r.done).length+mkDue().length}
+/* notifications : bandeau dans l'application + notification du navigateur quand elle est autorisée */
+function notifPerm(){return 'Notification' in window?Notification.permission:'unsupported'}
+function toast(title,body){document.querySelectorAll('.toast').forEach(t=>t.remove());const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');d.innerHTML=`<span class="ic">${I.wa}</span><div><b>${esc(title)}</b><span>${esc(body)}</span></div>`;d.onclick=()=>{d.remove();go('wa')};document.body.appendChild(d);setTimeout(()=>d.remove(),8000)}
+function notify(title,body,tag){toast(title,body);if(notifPerm()!=='granted')return;try{const n=new Notification(title,{body,tag,icon:$('.brand .mark img')?.src||undefined});n.onclick=()=>{window.focus();go('wa');n.close()}}catch(e){}}
+function mkTick(){if(!mk)return;const today=todayISO(),now=nowLocal();let changed=false;
+  if(mk.auto.sched)for(const c of mk.campaigns){if(c.when&&!c.notified&&c.when<=now&&mkStatus(c).st!=='done'){c.notified=true;changed=true;const s=mkStatus(c);notify('Campagne WhatsApp à envoyer',`« ${c.name||'Sans titre'} » — ${s.n} cliente${s.n>1?'s':''}`,'camp-'+c.id)}}
+  if(changed)persistMk();
+  if(now.slice(11)>=(mk.auto.hour||'10:00')){let last='';try{last=localStorage.getItem(LS+'mk-notified')||''}catch(e){}
+    if(last!==today){try{localStorage.setItem(LS+'mk-notified',today)}catch(e){}const R=mkReminders().filter(r=>!r.done);
+      if(R.length){const by={};R.forEach(r=>by[r.kind]=(by[r.kind]||0)+1);notify('Rappels WhatsApp du jour',Object.entries(by).map(([k,n])=>`${n} ${MK_KIND[k].toLowerCase()}`).join(' · '),'mk-daily');changed=true}}}
+  if(changed&&!document.activeElement?.matches?.('input,textarea'))render()}
+function rcpRow(c,msg,o){const ini=((c.nom||'?').trim()[0]||'?').toUpperCase();const st=o.state||'';
+  return `<div class="rcp ${st}"><span class="av">${esc(ini)}</span><div><div class="nm">${esc(c.nom||'Sans nom')}${o.kind?`<span class="chip ${o.kind==='bday'?'fix':o.kind==='back'?'':'ok'}">${MK_KIND[o.kind]}</span>`:''}${c.vip?'<span class="chip fix">VIP</span>':''}</div><div class="sub">${esc(waPretty(c.tel)||c.tel)}</div></div>
+    <div class="act">${st==='sent'?`<span class="chip ok">${I.check} Envoyé${o.at?' '+esc(hhmm(o.at)):''}</span>`:st==='skip'?`<span class="chip">Ignoré</span>`:`<a class="pill wa" href="${mkLink(c,msg)}" target="_blank" rel="noopener" ${o.send}>${I.wa} Envoyer</a><button class="pill" ${o.skip}>Ignorer</button>`}</div>
+    ${st?'':`<div class="prev">${esc(mkText(msg,c))}</div>`}</div>`}
+function renderWA(){
+  if(mkOpen){const c=mk.campaigns.find(x=>x.id===mkOpen);if(c)return renderCampaign(c);mkOpen=null}
+  const today=todayISO(),month=today.slice(0,7);const reach=mkReach();const R=mkReminders();const pend=R.filter(r=>!r.done);const doneToday=R.filter(r=>r.done).length;
+  const sentToday=mk.log.filter(l=>!l.skipped&&(l.t||'').slice(0,10)===today).length,sentMonth=mk.log.filter(l=>!l.skipped&&(l.t||'').slice(0,7)===month).length;
+  const perm=notifPerm();
+  const permHtml=perm==='granted'?`<div class="perm ok">${I.check}<p><b>Notifications activées</b> sur cet appareil : tu es prévenue quand une campagne programmée ou les rappels du jour sont à envoyer.</p></div>`
+    :perm==='denied'?`<div class="perm bad">${I.warn}<p><b>Notifications bloquées</b> par le navigateur. Autorise-les dans les réglages du site pour être prévenue ; les rappels restent visibles ici.</p></div>`
+    :perm==='unsupported'?`<div class="perm">${I.warn}<p>Ce navigateur n'affiche pas de notifications. Les rappels restent visibles dans cet onglet et dans la pastille du menu.</p></div>`
+    :`<div class="perm">${I.wa}<p><b>Être prévenue</b> quand une campagne programmée ou les rappels du jour sont à envoyer (notification sur cet appareil).</p><button class="addbtn" data-notif>Activer les notifications</button></div>`;
+  const tog=(k,title,sub,extra='')=>`<label class="tog"><input type="checkbox" data-auto="${k}" ${mk.auto[k]?'checked':''}><span class="tt">${title}<small>${sub}</small></span>${extra}</label>`;
+  const autoCard=`<div class="card mkauto"><div class="ch"><h3>Rappels automatiques et notifications</h3><span class="note">rappels du jour à <input type="time" data-auto="hour" value="${esc(mk.auto.hour||'10:00')}" style="padding:4px 8px;font-weight:600"></span></div>${permHtml}
+    <div class="togs">${tog('bday','Anniversaire','le jour J, message d\'anniversaire')}${tog('thanks','Merci pour la visite','le lendemain d\'une visite')}${tog('back','Relance','cliente pas revenue depuis',`<span class="note"><input type="number" min="7" max="365" data-auto="backDays" value="${esc(mk.auto.backDays||30)}"> j</span>`)}${tog('sched','Campagnes programmées','notification à la date et l\'heure choisies')}</div></div>`;
+  const rem=pend.length?pend.map(r=>rcpRow(r.c,mkTpl(r.kind).msg,{kind:r.kind,send:`data-rmsend="${r.key}"`,skip:`data-rmskip="${r.key}"`})).join(''):`<div class="empty">Aucun rappel à envoyer aujourd'hui.</div>`;
+  const remCard=`<div class="card"><div class="ch"><h3>Rappels du jour</h3><span class="chip ${pend.length?'fix':'ok'}">${pend.length?pend.length+' à envoyer':'à jour'}</span>${doneToday?`<span class="note">${doneToday} traité${doneToday>1?'s':''}</span>`:''}</div><p class="note" style="margin:-6px 0 0">Calculés depuis la base clientes : anniversaires du jour, visites d'hier, clientes pas revenues. « Envoyer » ouvre WhatsApp avec le message prêt ; il ne reste qu'à appuyer sur envoyer.</p><div class="rcps">${rem}</div></div>`;
+  const camps=mk.campaigns.slice().sort((a,b)=>(b.created||'').localeCompare(a.created||''));
+  const campHtml=camps.length?camps.map(c=>{const s=mkStatus(c);const audL=(MK_AUD.find(a=>a[0]===c.aud)||MK_AUD[0])[1];
+    return `<button class="camp ${s.st}" data-mkopen="${c.id}"><div><div class="nm">${esc(c.name||'Sans titre')}</div><div class="sub">${esc(audL)} · ${s.n} cliente${s.n>1?'s':''}${c.when?' · '+esc(fmtDate(c.when.slice(0,10))+' à '+hhmm(c.when.slice(11,16))):''}</div></div><span class="chip ${mkChip(s.st)}">${s.label}${s.n?` · ${s.sent}/${s.n}`:''}</span><span class="prog"><i style="width:${s.n?(s.sent/s.n*100):0}%"></i></span></button>`}).join(''):`<div class="empty">Aucune campagne pour l'instant. Crée la première : offre, événement, nouveauté…</div>`;
+  const campCard=`<div class="card"><div class="ch"><h3>Campagnes</h3><span class="note">${camps.length} campagne${camps.length>1?'s':''}</span><button class="addbtn" data-mknew>+ Nouvelle campagne</button></div><div class="camps">${campHtml}</div></div>`;
+  return `<div class="card"><div class="ch"><h3>WhatsApp marketing</h3><span class="chip wa">${I.wa} ${reach.length} cliente${reach.length>1?'s':''} joignable${reach.length>1?'s':''}</span></div>
+    <p class="note" style="margin:-6px 0 0">Offres, événements, anniversaires, relances : les messages partent du WhatsApp de la tablette, personnalisés pour chaque cliente. Les clientes sans numéro ou qui ne veulent pas de messages (case « Pas de WhatsApp marketing » dans la base) ne sont jamais incluses.</p>
+    <div class="kpis"><div class="kpi ok"><b class="num">${reach.length}</b><span>Joignables</span><small>sur ${clients.rows.length} cliente${clients.rows.length>1?'s':''}</small></div><div class="kpi ${pend.length?'fix':''}"><b class="num">${pend.length}</b><span>Rappels</span><small>à envoyer aujourd'hui</small></div><div class="kpi pole"><b class="num">${sentToday}</b><span>Envoyés</span><small>aujourd'hui</small></div><div class="kpi"><b class="num">${sentMonth}</b><span>Ce mois</span><small>messages marketing</small></div></div></div>
+    ${remCard}${campCard}${autoCard}`;
+}
+function renderCampaign(c){const s=mkStatus(c);const sample=s.aud[0]||{nom:'Prénom Nom'};
+  const head=`<div class="card fbh"><div class="ch"><button class="pill" data-mkclose>‹ Toutes les campagnes</button><h3 style="flex:1">${esc(c.name||'Nouvelle campagne')}</h3><span class="chip ${mkChip(s.st)}">${s.label}</span></div></div>`;
+  const form=`<div class="card"><h3>Message</h3><div class="fields">
+    <label class="h">Nom de la campagne<input data-mk="name" value="${esc(c.name||'')}" placeholder="ex. Offre hammam de novembre" autocomplete="off"></label>
+    <label class="h">Modèle<select data-mktpl>${WA_TEMPLATES.map(t=>`<option value="${t.id}" ${t.id===c.tpl?'selected':''}>${esc(t.name)}</option>`).join('')}</select></label>
+    <label class="wide mkmsg">Texte envoyé<textarea data-mk="msg">${esc(c.msg||'')}</textarea><span class="vars">Personnalisation : <code>{prenom}</code> <code>{nom}</code> · remplace les crochets [ ] par ton contenu</span></label></div>
+    <div><h4 class="tsub" style="margin-bottom:6px">Aperçu pour ${esc(sample.nom)}</h4><pre class="preview-wa" id="mkPreview">${esc(mkText(c.msg,sample))}</pre></div></div>`;
+  const auds=`<div class="card"><div class="ch"><h3>Destinataires</h3><span class="chip wa">${I.wa} ${s.n} cliente${s.n>1?'s':''}</span></div><div class="auds">${MK_AUD.map(([k,l])=>`<button data-mkaud="${k}" aria-pressed="${(c.aud||'all')===k}">${esc(k==='back'?l+' depuis '+(mk.auto.backDays||30)+' j':l)}<span class="n">${mkAudience(k).length}</span></button>`).join('')}</div>
+    <div class="fields"><label class="m">Programmer le<input type="date" data-mk="whenD" value="${esc((c.when||'').slice(0,10))}"></label><label class="s">à<input type="time" data-mk="whenT" value="${esc((c.when||'').slice(11,16))}"></label><span class="note" style="align-self:end;grid-column:span 7">${c.when?'Une notification te préviendra à ce moment-là ; l\'envoi se fait ensuite depuis cette page.':'Sans date : la campagne est à envoyer dès maintenant.'}</span></div></div>`;
+  const rows=s.aud.map(x=>rcpRow(x,c.msg,{send:`data-mksend="${c.id}:${x.id}"`,skip:`data-mkskip="${c.id}:${x.id}"`,state:c.sent?.[x.id]?'sent':c.skip?.[x.id]?'skip':'',at:(c.sent?.[x.id]||'').slice(11,16)})).join('');
+  const list=`<div class="card"><div class="ch"><h3>Envoi</h3><span class="note">${s.sent}/${s.n} envoyé${s.sent>1?'s':''}${s.skip?' · '+s.skip+' ignoré'+(s.skip>1?'s':''):''}</span><button class="pill" data-mkcopy>Copier le message</button></div>
+    <p class="note" style="margin:-6px 0 0">Chaque « Envoyer » ouvre WhatsApp avec le message personnalisé pour la cliente : il n'y a plus qu'à appuyer sur envoyer, puis revenir ici pour la suivante.</p>
+    <div class="rcps">${rows||'<div class="empty">Aucune cliente joignable dans cette sélection.</div>'}</div>
+    <div class="confirm" style="justify-content:flex-end"><button class="danger" data-mkdel="${c.id}">Supprimer la campagne</button></div></div>`;
+  return head+form+auds+list}
 
 /* ---------- événements (délégués) ---------- */
 const V=$('#view');
@@ -448,6 +546,16 @@ V.addEventListener('click',e=>{
   if(D.savefiche!==undefined){const f=fichesToday().find(r=>r.id===fiche);f.saved=true;upsertClient(f);persist();render();return}
   if(D.intern!==undefined){ficheIntern=!ficheIntern;render();return}
   if(D.delfiche){if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Confirmer la suppression';setTimeout(()=>{b.classList.remove('confirm');b.textContent='Supprimer cette fiche'},3000);return}state.regs.client=state.regs.client.filter(r=>r.id!==D.delfiche);fiche=null;persist();render();return}
+  // whatsapp marketing
+  if(D.notif!==undefined){if(!('Notification' in window))return;Notification.requestPermission().then(p=>{render();if(p==='granted')notify('Notifications activées','Tu seras prévenue ici pour les campagnes programmées et les rappels du jour.','mk-on')});return}
+  if(D.mknew!==undefined){const t0=WA_TEMPLATES[0];const c={id:uid(),name:'',tpl:t0.id,msg:t0.msg,aud:'all',when:'',sent:{},skip:{},created:nowLocal()};mk.campaigns.push(c);mkOpen=c.id;persistMk();render();window.scrollTo({top:0});const i=V.querySelector('input[data-mk=name]');i&&i.focus();return}
+  if(D.mkopen){mkOpen=D.mkopen;render();window.scrollTo({top:0});return}
+  if(D.mkclose!==undefined){mkOpen=null;render();return}
+  if(D.mkaud){const c=mk.campaigns.find(x=>x.id===mkOpen);if(c){c.aud=D.mkaud;persistMk();render()}return}
+  if(D.mkskip){const [cid,id]=D.mkskip.split(':');const c=mk.campaigns.find(x=>x.id===cid);const cl=clients.rows.find(x=>x.id===id);if(c&&cl){(c.skip=c.skip||{})[id]=nowLocal();mkLog({key:'camp:'+cid+':'+id,kind:'camp',camp:c.name,cid:id,nom:cl.nom,skipped:true});render()}return}
+  if(D.rmskip){const [,kind,id]=D.rmskip.split(':');const cl=clients.rows.find(x=>x.id===id);mkLog({key:D.rmskip,kind,cid:id,nom:cl?.nom||'',skipped:true});render();return}
+  if(D.mkcopy!==undefined){const c=mk.campaigns.find(x=>x.id===mkOpen);navigator.clipboard?.writeText(c?.msg||'').then(()=>{b.textContent='✓ Copié';setTimeout(()=>b.textContent='Copier le message',1800)}).catch(()=>{});return}
+  if(D.mkdel){if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Confirmer la suppression';setTimeout(()=>{b.classList.remove('confirm');b.textContent='Supprimer la campagne'},3000);return}mk.campaigns=mk.campaigns.filter(x=>x.id!==D.mkdel);mkOpen=null;persistMk();render();return}
   // clientes
   if(D.addclient!==undefined){const c={id:uid(),nom:'',tel:'',email:'',pref:'',notes:'',vip:false,visits:[]};clients.rows.unshift(c);clientOpen=c.id;clientFilter='all';clientQ='';persistClients();render();const f=V.querySelector('.ce input');f&&f.focus();return}
   if(D.cf){clientFilter=D.cf;render();return}
@@ -456,6 +564,10 @@ V.addEventListener('click',e=>{
   if(D.delclient){if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Confirmer la suppression';setTimeout(()=>{b.classList.remove('confirm');b.textContent='Supprimer la cliente'},3000);return}clients.rows=clients.rows.filter(c=>c.id!==D.delclient);clientOpen=null;persistClients();render();return}
 });
 V.addEventListener('click',e=>{const wa=e.target.closest('a[data-sendwa]');if(wa){if(wa.dataset.sendwa!=='1'){e.preventDefault();const h=$('#waHint');if(h){h.hidden=false;h.style.color='var(--urg)';h.style.fontWeight='600'}return}const f=fichesToday().find(r=>r.id===fiche);wa.setAttribute('href',waLink(f));f.saved=true;f.sentAt=new Date().toTimeString().slice(0,5);upsertClient(f);persist();setTimeout(render,300)}});
+V.addEventListener('click',e=>{const a=e.target.closest('a[data-mksend],a[data-rmsend]');if(!a)return;
+  if(a.dataset.mksend){const [cid,id]=a.dataset.mksend.split(':');const c=mk.campaigns.find(x=>x.id===cid);const cl=clients.rows.find(x=>x.id===id);if(!c||!cl)return;(c.sent=c.sent||{})[id]=nowLocal();mkLog({key:'camp:'+cid+':'+id,kind:'camp',camp:c.name,cid:id,nom:cl.nom})}
+  else{const [,kind,id]=a.dataset.rmsend.split(':');const cl=clients.rows.find(x=>x.id===id);mkLog({key:a.dataset.rmsend,kind,cid:id,nom:cl?.nom||''})}
+  setTimeout(render,400)});
 V.addEventListener('input',e=>{
   const t=e.target;const D=t.dataset;
   if((D.fk==='bday'||D.c==='bday')&&!/^delete/.test(e.inputType||'')){const m=bdayMask(t.value);if(m!==t.value)t.value=m}
@@ -467,6 +579,9 @@ V.addEventListener('input',e=>{
   if(D.f){const id=t.closest('.item').dataset.cid;const c=checkOf(id);if(t.value)c[D.f]=t.value;else delete c[D.f];if(D.f==='note'&&t.value&&!c.s)c.s='fix';persist();return}
   if(D.pf){const mid=t.closest('.item').dataset.mid;const m=team.rows.find(x=>x.id===mid);let r=staffRow(m);if(!r){const n=fullName(m);if(!n)return;r={id:uid(),mid:m.id,nom:n,serv:[m.fonction,m.sec].filter(Boolean).join(' · ')};state.regs.staff.push(r)}if(t.value)r[D.pf]=t.value;else delete r[D.pf];persist();return}
   if(D.m){const mid=t.closest('.item').dataset.mid;const m=team.rows.find(x=>x.id===mid);const old=fullName(m);m[D.m]=t.value;const r=state.regs.staff.find(x=>x.mid===mid)||state.regs.staff.find(x=>!x.mid&&x.nom===old);if(r&&(D.m==='prenom'||D.m==='nom'))r.nom=fullName(m);persistTeam();if(r)persist();return}
+  // whatsapp marketing
+  if(D.mk){const c=mk.campaigns.find(x=>x.id===mkOpen);if(!c)return;if(D.mk==='whenD'||D.mk==='whenT'){const d=D.mk==='whenD'?t.value:(c.when||'').slice(0,10);const h=D.mk==='whenT'?t.value:((c.when||'').slice(11,16)||'10:00');c.when=d?d+'T'+(h||'10:00'):'';c.notified=false}else c[D.mk]=t.value;persistMk();if(D.mk==='msg'){const p=$('#mkPreview');if(p){const sm=mkStatus(c).aud[0]||{nom:'Prénom Nom'};p.textContent=mkText(c.msg,sm)}}return}
+  if(D.auto){if(t.type==='checkbox')mk.auto[D.auto]=t.checked;else if(D.auto==='backDays')mk.auto.backDays=Math.min(365,Math.max(1,+t.value||30));else mk.auto[D.auto]=t.value;persistMk();return}
   // fiches / clientes
   if(D.fk){const f=fichesToday().find(r=>r.id===fiche);if(!f)return;f[D.fk]=D.fk==='bday'?bdayStore(t.value):t.value;if(D.fk==='prenom'||D.fk==='nom')f.nomComplet=ficheName(f);persist();if(['montant','type','motif','dep'].includes(D.fk)&&f.saved)upsertClient(f);return}
   if(D.sk){const f=fichesToday().find(r=>r.id===fiche);const x=ficheSteps(f).find(x=>x.id===t.closest('.pstep').dataset.sid);if(!x)return;x[D.sk]=t.type==='checkbox'?t.checked:t.value;persist();return}
@@ -478,6 +593,8 @@ V.addEventListener('change',e=>{
   if(D.sk||D.fk){if(t.type==='checkbox'||D.sk==='time'||D.fk==='type'||D.fk==='st'||(D.fk==='tel'&&ficheStep===3))render();return}
   if(D.photo!==undefined){const fs=t.files;if(!fs||!fs.length)return;const btn=t.closest('.pbtn');btn.classList.add('busy');btn.querySelector('span').textContent='Envoi…';addPhotos(D.photo,fs);return}
   if(D.f||D.pf){render();return}
+  if(D.mktpl!==undefined){const c=mk.campaigns.find(x=>x.id===mkOpen);if(c){c.tpl=t.value;c.msg=mkTpl(t.value).msg;persistMk();render()}return}
+  if(D.mk||(D.auto&&D.auto!=='hour')){render();return}
   if(D.m==='sec'){render();return}
   if(D.c&&(D.c==='nom'||D.c==='tel'||D.c==='vip')){render();return}
 });
@@ -488,9 +605,9 @@ $('#brandBtn').onclick=()=>go('jour');
 $('#date').addEventListener('change',e=>{if(e.target.value)switchDay(e.target.value)});
 function shiftDay(n){const d=new Date(day+'T12:00:00');d.setDate(d.getDate()+n);switchDay(d.toISOString().slice(0,10))}
 $('#prevDay').onclick=()=>shiftDay(-1);$('#nextDay').onclick=()=>shiftDay(1);
-function renderBnav(){
-  const cs=checkStats();
-  $('#bnav').innerHTML=VIEWS.map(([id,l,ic])=>`<button data-nav="${id}" aria-selected="${view===id}" style="--pc:var(--accent);--pcs:var(--accent-soft)"><span class="ic">${ic}</span>${l}${id==='jour'&&cs.fix?`<span class="b">${cs.fix}</span>`:''}</button>`).join('');
+function renderBnav(mkp){
+  const cs=checkStats();if(mkp===undefined)mkp=mkPending();
+  $('#bnav').innerHTML=VIEWS.map(([id,l,ic])=>`<button data-nav="${id}" aria-selected="${view===id}" style="--pc:var(--accent);--pcs:var(--accent-soft)"><span class="ic">${ic}</span>${l}${id==='jour'&&cs.fix?`<span class="b">${cs.fix}</span>`:''}${id==='wa'&&mkp?`<span class="b">${mkp}</span>`:''}</button>`).join('');
 }
 $('#bnav').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.nav)});
 
@@ -572,7 +689,10 @@ function start(){
   /* première ouverture sur cet appareil : on reprend l'équipe et la base clientes de l'application actuelle si elles existent (même navigateur) */
   const t=ld(LS+'team')||ld('ava-team');if(t&&t.rows)team=t;
   const c=ld(LS+'clients')||ld('ava-clients');if(c&&c.rows)clients=c;
+  const m=ld(LS+'marketing');if(m)mk=normMk(m);
   render();
+  /* rappels et campagnes programmées : vérification à l'ouverture puis chaque minute */
+  setTimeout(mkTick,1500);setInterval(mkTick,60000);
   if(SERVER_MODE)initServer();else syncBanner(false);
 }
 start();
