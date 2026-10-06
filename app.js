@@ -142,6 +142,7 @@ function go(v){view=v;clientOpen=null;fiche=null;render();window.scrollTo({top:0
 function render(){
   $('#date').value=day;
   $('#teamlist').innerHTML=[...new Set(team.rows.map(fullName).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('');
+  $('#seclist').innerHTML=[...new Set(team.rows.map(m=>m.sec).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('');
   $('#clientlist').innerHTML=clients.rows.map(c=>c.nom).filter(Boolean).map(n=>`<option value="${esc(n)}">`).join('');
   const cs=checkStats(),ss=staffStats(),nf=state.regs.client.length;
   const counts={jour:cs.fix?`${cs.fix} à corriger`:`${cs.ok}/${cs.n-cs.na}`,fiches:nf||'',base:clients.rows.length||'',cr:''};
@@ -162,24 +163,24 @@ function renderJour(){
   const secs=[...new Set(team.rows.map(m=>m.sec||'Autre'))];
   const staffRows=secs.map(sec=>{const ms=team.rows.filter(m=>(m.sec||'Autre')===sec);return `<div class="tsec-in"><h4 class="tsub">${esc(sec)} <span class="n">${ms.length}</span></h4>${ms.map(staffItem).join('')}</div>`}).join('');
   const sz={n:ss.total,done:ss.total-ss.todo,ok:ss.ok,fix:ss.late,urg:ss.abs};
-  const staffZone=zoneHtml('staff','Présence du personnel','Équipe',sz,staffRows+`<div class="item" style="display:flex;gap:8px;flex-wrap:wrap"><button class="pill" data-addmember>+ Ajouter du personnel</button>${ss.todo?`<button class="pill ok" data-allpresent>Tous présents (${ss.todo} restant${ss.todo>1?'s':''})</button>`:''}</div>`,!open.has('staff'),'');
+  const staffZone=zoneHtml('staff','Présence du personnel','Équipe',sz,staffRows+`<div class="item" style="display:flex;gap:8px;flex-wrap:wrap"><button class="pill" data-addmember>+ Ajouter du personnel</button>${ss.todo?`<button class="pill ok" data-allpresent>Tous présents (${ss.todo} restant${ss.todo>1?'s':''})</button>`:''}</div>`,!open.has('staff'),'',`<button class="allok addp" data-addmember>+ Ajouter du personnel</button>`);
   /* propreté / mise en place */
   const zones=CHECKS.map(g=>{const z=checkStats(g.id);const rows=g.items.map(([id])=>checkItem(CHECK_ITEMS[id])).join('');return zoneHtml(g.id,g.title,g.tag,{n:z.n,done:z.done,ok:z.ok,fix:z.fix,urg:0},rows,!open.has(g.id),z.done<z.n?`data-allok="${g.id}"`:'')}).join('');
   const bilan=`<div class="card bilan"><div class="ch"><h3>Bilan / priorités du lendemain</h3><span class="chip ${state.bilan.note?'ok':''}">${state.bilan.note?'✓ renseigné':'à renseigner'}</span></div><textarea data-note placeholder="Une difficulté, une décision, une priorité pour demain…">${esc(state.bilan.note||'')}</textarea><p class="note" style="margin:0">Repris tel quel dans le compte rendu du jour.</p></div>`;
   const gocr=`<div class="gocr"><p><b>Compte rendu de la journée</b><br>Personnel, espaces et mise en place, parcours clientes, messages envoyés et bilan.</p><button class="addbtn" data-view="cr">Générer le compte rendu</button></div>`;
   return `${hero}<div class="sec-title"><h3>Préparer la journée</h3><span>${cs.done}/${cs.n} points vérifiés · ${ss.total-ss.todo}/${ss.total} présences renseignées</span></div><div class="jour-grid">${staffZone}${zones}${bilan}${gocr}</div>`;
 }
-function zoneHtml(key,title,tag,z,rows,closed,allokAttr){
+function zoneHtml(key,title,tag,z,rows,closed,allokAttr,extra=''){
   const n=z.n||1;
   return `<section class="zone ${closed?'closed':''}" data-zkey="${key}"><header data-fold="${key}"><span class="tag">${tag}</span><h3>${esc(title)}</h3>
-    <span class="zn num ${z.done===z.n?'done':''} ${z.fix||z.urg?'warn':''}">${z.done===z.n&&z.n?'✓ ':''}${z.done}/${z.n}</span>${allokAttr?`<button class="allok" ${allokAttr}>Tout prêt</button>`:''}
+    <span class="zn num ${z.done===z.n?'done':''} ${z.fix||z.urg?'warn':''}">${z.done===z.n&&z.n?'✓ ':''}${z.done}/${z.n}</span>${allokAttr?`<button class="allok" ${allokAttr}>Tout prêt</button>`:''}${extra}
     <button class="fold" aria-label="Déplier"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l4 4 4-4"/></svg></button>
     <span class="strip"><i class="ok" style="width:${z.ok/n*100}%"></i><i class="fix" style="width:${z.fix/n*100}%"></i><i class="urg" style="width:${(z.urg||0)/n*100}%"></i></span></header>
     <div class="items">${rows}</div></section>`;
 }
 function staffItem(m){
   const r=staffRow(m)||{};const st=pStatus(r);const n=fullName(m)||'Sans nom';const dk='staff:'+m.id;
-  if(editMember===m.id)return `<div class="item" data-mid="${m.id}"><div class="edit"><input data-m="prenom" value="${esc(m.prenom)}" placeholder="Prénom"><input data-m="nom" value="${esc(m.nom)}" placeholder="Nom"><input data-m="fonction" value="${esc(m.fonction)}" placeholder="Poste / secteur"></div><div class="ebtns"><button class="pill urg" data-delmember="${m.id}">Retirer</button><button class="pill solid" data-editdone>OK</button></div></div>`;
+  if(editMember===m.id)return `<div class="item" data-mid="${m.id}"><div class="edit"><input data-m="prenom" value="${esc(m.prenom)}" placeholder="Prénom"><input data-m="nom" value="${esc(m.nom)}" placeholder="Nom"><input data-m="fonction" value="${esc(m.fonction)}" placeholder="Poste"><input data-m="sec" list="seclist" value="${esc(m.sec||'')}" placeholder="Secteur"></div><div class="ebtns"><button class="pill urg" data-delmember="${m.id}">Retirer</button><button class="pill solid" data-editdone>OK</button></div></div>`;
   const meta=[];if(r.arr&&(st==='ok'||st==='late'))meta.push(`<span>⏱ ${esc(hhmm(r.arr))}</span>`);if(r.obs)meta.push(`<span class="obs">${esc(r.obs)}</span>`);
   const cls=st==='ok'?'ok':st==='late'?'fix':st==='abs'?'urg':st==='np'?'na':'none';
   return `<div class="item s-${cls}" data-mid="${m.id}">
@@ -378,7 +379,7 @@ V.addEventListener('click',e=>{
   if(D.editmember){editMember=D.editmember;render();return}
   if(D.editdone!==undefined){editMember=null;render();return}
   if(D.delmember){team.rows=team.rows.filter(x=>x.id!==D.delmember);editMember=null;persistTeam();render();return}
-  if(D.addmember!==undefined){const m={id:uid(),sec:'Autre',prenom:'',nom:'',fonction:''};team.rows.push(m);editMember=m.id;open.add('staff');persistTeam();render();const i=V.querySelector(`[data-mid="${m.id}"] input`);i&&i.focus();return}
+  if(D.addmember!==undefined){const m={id:uid(),sec:'Autre',prenom:'',nom:'',fonction:''};team.rows.push(m);editMember=m.id;open.add('staff');persistTeam();render();const i=V.querySelector(`[data-mid="${m.id}"] input`);if(i){i.focus();i.closest('.item').scrollIntoView({block:'center',behavior:'smooth'})}return}
   // compte rendu
   if(D.copy!==undefined){const txt=$('#crtext')?.textContent||'';navigator.clipboard?.writeText(txt).then(()=>{b.textContent='✓ Copié';setTimeout(()=>b.textContent='Copier le texte',1800)}).catch(()=>{const r=document.createRange();r.selectNodeContents($('#crtext'));const s=getSelection();s.removeAllRanges();s.addRange(r)});return}
   if(D.share!==undefined){const txt=$('#crtext')?.textContent||'';navigator.share({title:'AVA Bay — compte rendu',text:txt}).catch(()=>{});return}
@@ -424,6 +425,7 @@ V.addEventListener('change',e=>{
   if(t.id==='addAct'&&t.value){const f=fichesToday().find(r=>r.id===fiche);const [z,a]=t.value.split('|');ficheSteps(f).push({id:uid(),zone:z,act:a,time:'',dispo:'',ok:false});f.presta=f.steps.map(x=>x.act);persist();render();return}
   if(D.sk||D.fk){if(t.type==='checkbox'||D.sk==='time'||D.fk==='type'||D.fk==='st'||(D.fk==='tel'&&ficheStep===3))render();return}
   if(D.f||D.pf){render();return}
+  if(D.m==='sec'){render();return}
   if(D.c&&(D.c==='nom'||D.c==='tel'||D.c==='vip')){render();return}
 });
 function rerenderKeepFocus(){const id=document.activeElement?.id;const pos=document.activeElement?.selectionStart;render();const el=id&&document.getElementById(id);if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(x){}}}

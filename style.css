@@ -478,3 +478,8 @@ table.ca tr.total td{padding:9px 8px;font-weight:700;border-top:2px solid var(--
 .tsec-in>h4.tsub{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);padding:10px 14px 4px;border-top:1px solid var(--line);display:flex;gap:6px;align-items:center}
 .tsec-in:first-child>h4.tsub{border-top:0}
 .tsec-in>h4.tsub .n{color:var(--ink-2)}
+.zone>header .allok.addp{color:var(--pole)}
+.zone>header .allok.addp:hover{background:var(--pole-soft)}
+@media(max-width:700px){.zone>header .allok.addp{font-size:11px;padding:6px 8px}}
+.item .edit{grid-template-columns:1fr 1fr 1.5fr 1.2fr}
+@media(max-width:600px){.item .edit{grid-template-columns:1fr 1fr}.item .edit input:last-child{grid-column:auto}}
