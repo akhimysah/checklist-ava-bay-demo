@@ -493,3 +493,7 @@ table.ca tr.total td{padding:9px 8px;font-weight:700;border-top:2px solid var(--
 .photos .pbtn.busy{opacity:.6;pointer-events:none}
 .crline .msg.photos{display:flex;gap:6px;background:none;padding:0}
 .crline .msg.photos img{width:48px;height:48px}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0}
+.chiprow .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:700;margin-right:4px}
+.chiprow .chip{font-weight:500;font-size:12.5px}
+.crline .msg b{font-family:var(--fb);font-size:13px}

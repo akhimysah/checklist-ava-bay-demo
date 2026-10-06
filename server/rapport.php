@@ -73,7 +73,7 @@ if (!$R) {
       $st = array_map(fn($x) => ['time' => $x['time'] ?? '', 'act' => $x['act'] ?? '', 'ok' => !empty($x['ok']), 'note' => $x['note'] ?? ''], $steps);
       $R['clientes']['n']++; if (!empty($fc['sentAt'])) $R['clientes']['sent']++; $R['clientes']['depense'] += (float)($fc['montant'] ?? 0);
       $type = $RT[$fc['type'] ?? ''] ?? '';
-      $R['clientes']['rows'][] = ['nom' => $nm, 'bracelet' => $fc['bracelet'] ?? '', 'h' => $fc['h'] ?? '', 'dep' => $fc['dep'] ?? '', 'venue' => $VN[$fc['venue'] ?? ''] ?? '', 'steps' => $st, 'montant' => isset($fc['montant']) && $fc['montant'] !== '' ? (float)$fc['montant'] : null, 'statut' => !empty($fc['sentAt']) ? 'Envoyé sur WhatsApp' : ($st ? 'En préparation' : 'Nouvelle'), 'type' => $type, 'motif' => $fc['motif'] ?? '', 'rep' => $fc['rep'] ?? '', 'traite' => ($fc['st'] ?? '') === 'done'];
+      $R['clientes']['rows'][] = ['nom' => $nm, 'bracelet' => $fc['bracelet'] ?? '', 'h' => $fc['h'] ?? '', 'dep' => $fc['dep'] ?? '', 'venue' => $VN[$fc['venue'] ?? ''] ?? '', 'steps' => $st, 'montant' => isset($fc['montant']) && $fc['montant'] !== '' ? (float)$fc['montant'] : null, 'statut' => !empty($fc['sentAt']) ? 'Envoyé sur WhatsApp' : ($st ? 'En préparation' : 'Nouvelle'), 'sentAt' => $fc['sentAt'] ?? '', 'type' => $type, 'motif' => $fc['motif'] ?? '', 'rep' => $fc['rep'] ?? '', 'traite' => ($fc['st'] ?? '') === 'done'];
       if ($type) $R['clientes']['retours'][] = ['nom' => $nm, 'type' => $type, 'motif' => $fc['motif'] ?? '', 'rep' => $fc['rep'] ?? '', 'traite' => ($fc['st'] ?? '') === 'done'];
       if (!empty($fc['sentAt'])) $R['messages'][] = ['nom' => $nm, 'tel' => $fc['tel'] ?? '', 'canal' => 'WhatsApp', 'sentAt' => $fc['sentAt'], 'body' => 'Programme envoyé : ' . implode(' → ', array_map(fn($x) => trim(hm($x['time']) . ' ' . $x['act']), $st))];
     }
@@ -85,60 +85,50 @@ if (!$R) {
 } else {
   if (!empty($R['partial'])) $b .= '<p style="margin:14px 0;padding:12px 14px;background:#F8E3CF;border-radius:10px;color:#8A4B12;font-size:13.5px">Compte rendu reconstruit à partir des saisies brutes : les appareils de l\'équipe doivent recharger l\'application une fois pour que le résumé complet soit disponible.</p>';
 
+  $byst = function ($st) use ($R) { return array_values(array_filter($R['staff']['rows'], fn($r) => ($r['st'] ?? '') === $st)); };
+  $names = fn($rows) => implode(', ', array_map(fn($r) => $r['nom'], $rows));
+  $poste = fn($r) => $r['serv'] ? explode(' · ', $r['serv'])[0] : '';
+  $muted = fn($label, $txt) => $txt === '' ? '' : '<p style="margin:5px 0;font-size:13.5px"><b style="color:#6B5B50;font-size:11px;letter-spacing:.06em;text-transform:uppercase">' . e($label) . '</b> &nbsp;' . e($txt) . '</p>';
+
   /* --- personnel --- */
   $S = $R['staff'];
-  $b .= h2('Personnel');
-  $b .= '<p style="margin:4px 0">' . ((int)$S['ok'] + (int)$S['late']) . ' présent(s) sur ' . (int)$S['total'] . ' membre(s) renseigné(s)' . ($S['late'] ? ' · <span style="color:#8A4B12">' . (int)$S['late'] . ' en retard</span>' : '') . ($S['abs'] ? ' · <b style="color:#9B2C1D">' . (int)$S['abs'] . ' absent(s)</b>' : '') . ($S['np'] ? ' · ' . (int)$S['np'] . ' non prévu(s)' : '') . '.</p>';
-  if ($S['rows']) {
-    $b .= '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13.5px">';
-    foreach ($S['rows'] as $r) {
-      $col = $C[$r['st'] === 'late' ? 'fix' : ($r['st'] === 'abs' ? 'urg' : ($r['st'] === 'ok' ? 'ok' : ''))];
-      $b .= '<tr><td style="padding:6px 0;border-bottom:1px solid #F0E8E0"><b>' . e($r['nom']) . '</b>' . ($r['serv'] ? ' <span style="color:#6B5B50">· ' . e($r['serv']) . '</span>' : '') . ($r['obs'] ? '<br><i style="color:#6B5B50">' . e($r['obs']) . '</i>' : '') . '</td>'
-          . '<td style="padding:6px 0 6px 10px;border-bottom:1px solid #F0E8E0;text-align:right;white-space:nowrap">' . pill($r['label'] . ($r['arr'] ? ' · ' . hm($r['arr']) : ''), $col[0], $col[1]) . '</td></tr>';
-    }
-    $b .= '</table>';
-  } else $b .= '<p style="color:#6B5B50;margin:4px 0">Liste du personnel à renseigner.</p>';
+  $b .= h2('👥 Personnel — ' . ((int)$S['ok'] + (int)$S['late']) . ' présent(s) sur ' . (int)$S['total']);
+  if (!$S['rows']) $b .= '<p style="color:#6B5B50;margin:4px 0">Liste du personnel à renseigner.</p>';
+  foreach ($byst('late') as $r) $b .= card($C['fix'][1], pill('Retard' . ($r['arr'] ? ' · ' . hm($r['arr']) : ''), $C['fix'][0], $C['fix'][1]) . ' <b>' . e($r['nom']) . '</b> <span style="color:#6B5B50">' . e($poste($r)) . '</span>' . ($r['obs'] ? '<br><i>' . e($r['obs']) . '</i>' : ''));
+  foreach ($byst('abs') as $r) $b .= card($C['urg'][1], pill('Absent', $C['urg'][0], $C['urg'][1]) . ' <b>' . e($r['nom']) . '</b> <span style="color:#6B5B50">' . e($poste($r)) . '</span>' . ($r['obs'] ? '<br><i>' . e($r['obs']) . '</i>' : ''));
+  $b .= $muted('✅ Présents', $names($byst('ok'))) . $muted('Non prévus', $names($byst('np'))) . $muted('Non renseignés', $names($byst('')));
 
-  /* --- espaces et mise en place --- */
+  /* --- contrôle des espaces --- */
   $K = $R['checks'];
-  $b .= h2('Contrôle des espaces');
-  $b .= '<p style="margin:4px 0">' . (int)$K['ready'] . '/' . ((int)$K['n'] - (int)$K['na']) . ' points prêts' . ($K['fix'] ? ' · <b style="color:#9B2C1D">' . (int)$K['fix'] . ' à corriger</b>' : '') . ($K['todo'] ? ' · ' . (int)$K['todo'] . ' à vérifier' : '') . '.</p>';
-  foreach ($K['groups'] as $g) {
-    $b .= '<p style="margin:12px 0 4px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:#6B5B50"><b>' . e($g['title']) . '</b></p>';
-    $b .= '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:13.5px">';
-    foreach ($g['items'] as $i) {
-      $col = $C[$i['s']] ?? $C[''];
-      $det = implode(' · ', array_filter([$i['note'], $i['r'] ? '→ ' . $i['r'] : '', hm($i['h'])]));
-      $b .= '<tr><td style="padding:5px 0;border-bottom:1px solid #F0E8E0;' . ($i['s'] === 'fix' ? 'font-weight:bold;color:#9B2C1D' : '') . '">' . e($i['label']) . ($det ? '<br><span style="font-weight:normal;color:#6B5B50;font-size:12.5px">' . e($det) . '</span>' : '') . '</td>'
-          . '<td style="padding:5px 0 5px 10px;border-bottom:1px solid #F0E8E0;text-align:right;white-space:nowrap">' . pill($i['status'], $col[0], $col[1]) . '</td></tr>';
-    }
-    $b .= '</table>';
+  $items = array_merge(...array_map(fn($g) => $g['items'], $K['groups'] ?: [[]]));
+  $of = fn($st) => array_values(array_filter($items, fn($i) => ($i['s'] ?? '') === $st));
+  $labels = fn($rows) => implode(', ', array_map(fn($i) => $i['label'], $rows));
+  $b .= h2('🧹 Contrôle des espaces — ' . (int)$K['ready'] . '/' . ((int)$K['n'] - (int)$K['na']) . ' prêts' . ($K['fix'] ? ' · ' . (int)$K['fix'] . ' à corriger' : ''));
+  foreach ($of('fix') as $i) {
+    $det = implode(' · ', array_filter([$i['r'] ? '→ ' . $i['r'] : '', hm($i['h']), !empty($i['photos']) ? $i['photos'] . ' photo' . ($i['photos'] > 1 ? 's' : '') . ' sur la tablette' : '']));
+    $b .= card($C['fix'][1], pill('À corriger', $C['fix'][0], $C['fix'][1]) . ' <b>' . e($i['label']) . '</b>' . ($i['note'] ? '<br>' . e($i['note']) : '') . ($det ? '<br><span style="color:#6B5B50;font-size:12.5px">' . e($det) . '</span>' : ''));
   }
+  $b .= $muted('❔ À vérifier', $labels($of(''))) . $muted('Non concernés', $labels($of('na')));
+  $b .= count($of('ok')) === count($items) && $items ? '<p style="margin:6px 0;color:#2F5A3E;font-weight:bold">✓ Tout est prêt.</p>' : $muted('✅ Prêts', $labels($of('ok')));
 
-  /* --- parcours clientes --- */
+  /* --- clientes --- */
   $cl = $R['clientes'];
-  $b .= h2('Parcours clientes (' . (int)$cl['n'] . ')');
-  $b .= '<p style="margin:4px 0">' . (int)$cl['n'] . ' fiche(s) cliente(s) aujourd\'hui' . (!empty($cl['sent']) ? ' · ' . (int)$cl['sent'] . ' programme(s) envoyé(s) sur WhatsApp' : '') . (!empty($cl['depense']) ? ' · dépense enregistrée : ' . number_format($cl['depense'], 0, ',', ' ') . ' DH' : '') . '.</p>';
+  $b .= h2('👩 Clientes — ' . (int)$cl['n'] . ' fiche(s)' . (!empty($cl['sent']) ? ' · ' . (int)$cl['sent'] . ' programme(s) envoyé(s)' : '') . (!empty($cl['depense']) ? ' · ' . number_format($cl['depense'], 0, ',', ' ') . ' DH' : ''));
   if (empty($cl['rows'])) $b .= '<p style="color:#6B5B50;margin:4px 0">Aucune cliente renseignée.</p>';
   foreach ($cl['rows'] as $r) {
     $bad = in_array($r['type'], ['Réclamation', 'Incident']);
-    $col = $bad ? $C['urg'][1] : ($r['type'] ? $C['ok'][1] : '#D9C9BC');
+    $col = $r['type'] ? ($bad ? $C['urg'][1] : $C['ok'][1]) : '#D9C9BC';
+    $sent = $r['sentAt'] ?? '';
+    if ($sent === '') foreach ($R['messages'] as $m) if ($m['nom'] === $r['nom']) $sent = $m['sentAt'];
     $pg = implode('  →  ', array_map(fn($s) => trim(hm($s['time']) . ' ' . $s['act']) . ($s['ok'] ? ' ✓' : ''), $r['steps']));
     $meta = implode(' · ', array_filter([$r['h'] ? 'arrivée ' . hm($r['h']) : '', $r['dep'] ? 'départ ' . hm($r['dep']) : '', $r['venue'] ? mb_strtolower($r['venue']) : '', $r['montant'] !== null ? number_format($r['montant'], 0, ',', ' ') . ' DH' : '']));
-    $b .= card($col, '<b>' . ($r['bracelet'] ? 'N° ' . e($r['bracelet']) . ' — ' : '') . e($r['nom']) . '</b> ' . pill($r['statut'], $C[strpos($r['statut'], 'Envoyé') === 0 ? 'ok' : ''][0], $C[strpos($r['statut'], 'Envoyé') === 0 ? 'ok' : ''][1])
-        . ($meta ? '<br><span style="color:#6B5B50;font-size:12.5px">' . e($meta) . '</span>' : '') . ($pg ? '<br>' . e($pg) : '<br><i style="color:#6B5B50">parcours à construire</i>')
+    $b .= card($col, '<b>' . ($r['bracelet'] ? 'N° ' . e($r['bracelet']) . ' · ' : '') . e($r['nom']) . '</b> ' . ($sent ? pill('💬 envoyé ' . hm($sent), $C['ok'][0], $C['ok'][1]) : pill($r['statut'], $C[''][0], $C[''][1]))
+        . ($meta ? '<br><span style="color:#6B5B50;font-size:12.5px">' . e($meta) . '</span>' : '') . ($pg ? '<br>' . e($pg) : '')
         . ($r['type'] ? '<br>' . pill($r['type'], $bad ? $C['urg'][0] : $C['ok'][0], $bad ? $C['urg'][1] : $C['ok'][1]) . ' ' . e($r['motif']) . ($r['rep'] ? ' — réponse : ' . e($r['rep']) : '') . ' <span style="color:#6B5B50">· ' . ($r['traite'] ? 'traité' : 'à traiter') . '</span>' : ''));
   }
 
-  /* --- messages envoyés --- */
-  $b .= h2('Messages envoyés (' . count($R['messages']) . ')');
-  if (!$R['messages']) $b .= '<p style="color:#6B5B50;margin:4px 0">Aucun envoi consigné.</p>';
-  foreach ($R['messages'] as $m) {
-    $b .= card($C['ok'][1], '<b>' . e($m['nom']) . '</b> <span style="color:#6B5B50">· ' . e($m['canal']) . ' · ' . e(hm($m['sentAt'])) . ($m['tel'] ? ' · ' . e($m['tel']) : '') . '</span><div style="margin-top:6px;padding:8px 10px;background:#F4ECE6;border-radius:6px;font-size:13px;white-space:pre-wrap">' . e($m['body']) . '</div>');
-  }
-
   /* --- bilan / priorités --- */
-  $b .= h2('Bilan / priorités du lendemain');
+  $b .= h2('📝 Bilan / priorités de demain');
   $b .= ($R['bilan']['note'] ?? '') !== '' ? '<p style="margin:4px 0;white-space:pre-wrap">' . e($R['bilan']['note']) . '</p>' : '<p style="color:#6B5B50;margin:4px 0">Non renseigné.</p>';
 
   if (!empty($R['updatedAt'])) $b .= '<p style="color:#8B7B70;font-size:12px;margin-top:22px">Dernière saisie dans l\'application : ' . e(date('H\hi', strtotime($R['updatedAt']))) . '.</p>';

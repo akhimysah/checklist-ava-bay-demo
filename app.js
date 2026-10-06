@@ -76,26 +76,38 @@ function buildResume(){
   const fr=(state.regs.client||[]).slice().sort((a,b)=>(a.h||'').localeCompare(b.h||''));
   const RT={comp:'Compliment',recl:'Réclamation',dem:'Demande particulière',inc:'Incident',avis:'Avis en ligne'};
   const clientes={n:fr.length,sent:fr.filter(f=>f.sentAt).length,depense:fr.reduce((a,f)=>a+(num(f.montant)||0),0),
-    rows:fr.map(f=>{const v=VENUES.find(v=>v[0]===f.venue);return {nom:ficheName(f),bracelet:f.bracelet||'',h:f.h||'',dep:f.dep||'',venue:v?v[1]:'',steps:ficheSteps(f).slice().sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(x=>({time:x.time||'',act:x.act,ok:!!x.ok,note:x.note||''})),montant:num(f.montant),statut:ficheStatus(f)[1],type:RT[f.type]||'',motif:f.motif||'',rep:f.rep||'',traite:f.st==='done'}}),
+    rows:fr.map(f=>{const v=VENUES.find(v=>v[0]===f.venue);return {nom:ficheName(f),bracelet:f.bracelet||'',h:f.h||'',dep:f.dep||'',venue:v?v[1]:'',steps:ficheSteps(f).slice().sort((a,b)=>(a.time||'').localeCompare(b.time||'')).map(x=>({time:x.time||'',act:x.act,ok:!!x.ok,note:x.note||''})),montant:num(f.montant),statut:ficheStatus(f)[1],sentAt:f.sentAt||'',type:RT[f.type]||'',motif:f.motif||'',rep:f.rep||'',traite:f.st==='done'}}),
     retours:fr.filter(f=>f.type).map(f=>({nom:ficheName(f),bracelet:f.bracelet||'',type:RT[f.type]||f.type,motif:f.motif||'',rep:f.rep||'',traite:f.st==='done'}))};
   const messages=fr.filter(f=>f.sentAt).map(f=>({nom:ficheName(f),tel:waPretty(f.tel)||f.tel||'',canal:'WhatsApp',sentAt:f.sentAt,body:waMessage(f)}));
   const bilan={note:state.bilan.note||''};
   return {date:day,staff,checks,clientes,messages,bilan,text:reportText({staff,checks,clientes,messages,bilan})};
 }
-/* version texte du compte rendu (copie / partage) */
+/* version texte du compte rendu (copie / partage) : l'essentiel d'abord, le reste regroupé */
 function reportText(R){
-  const L=['AVA BAY — COMPTE RENDU',longDate(day),'','PERSONNEL',`${R.staff.ok+R.staff.late} présent(s) sur ${R.staff.total} membre(s) renseigné(s)${R.staff.abs?` · ${R.staff.abs} absent(s)`:''}${R.staff.late?` · ${R.staff.late} en retard`:''}.`];
-  R.staff.rows.forEach(r=>L.push(`${r.nom} — ${r.serv||'poste à préciser'} : ${r.label}${r.arr?' ('+hhmm(r.arr)+')':''}${r.obs?' — '+r.obs:''}`));
-  L.push('','CONTRÔLE DES ESPACES',`${R.checks.ready}/${R.checks.n-R.checks.na} points prêts · ${R.checks.fix} à corriger${R.checks.todo?` · ${R.checks.todo} à vérifier`:''}.`);
-  R.checks.groups.forEach(g=>{L.push('· '+g.title);g.items.forEach(i=>L.push(`  ${i.label} : ${i.status}${i.note?' — '+i.note:''}${i.r?' ('+i.r+')':''}${i.photos?` · ${i.photos} photo${i.photos>1?'s':''}`:''}`))});
-  L.push('','PARCOURS CLIENTES');
-  if(!R.clientes.rows.length)L.push('Aucune cliente renseignée.');
-  R.clientes.rows.forEach(c=>L.push(`${c.bracelet?'N° '+c.bracelet+' — ':''}${c.nom}${c.h?' · arrivée '+hhmm(c.h):''}${c.venue?' · '+c.venue.toLowerCase():''} : ${c.steps.length?c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' (confirmée)':''}`).join(' → '):'parcours à construire'}${c.type?' — '+c.type+(c.motif?' : '+c.motif:''):''}`));
-  L.push('','MESSAGES ENVOYÉS');
-  if(!R.messages.length)L.push('Aucun envoi consigné.');
-  R.messages.forEach(m=>L.push(`${m.nom} — ${m.canal} · ${hhmm(m.sentAt)}${m.tel?' · '+m.tel:''}`,m.body,''));
-  if(R.messages.length)L.pop();
-  L.push('','BILAN / PRIORITÉS DU LENDEMAIN',R.bilan.note||'Non renseigné.');
+  const S=R.staff,C=R.checks;const by=st=>S.rows.filter(r=>r.st===st);const poste=r=>r.serv?r.serv.split(' · ')[0]:'';
+  const who=r=>r.nom+(poste(r)?' ('+poste(r)+')':'');const names=a=>a.map(r=>r.nom).join(', ');
+  const L=['🏝 AVA BAY — COMPTE RENDU DU JOUR','📅 '+longDate(day),''];
+  L.push(`👥 PERSONNEL — ${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`);
+  by('late').forEach(r=>L.push(`⏰ ${who(r)} — retard${r.arr?' '+hhmm(r.arr):''}${r.obs?' · '+r.obs:''}`));
+  by('abs').forEach(r=>L.push(`❌ ${who(r)} — absent${r.obs?' · '+r.obs:''}`));
+  if(by('ok').length)L.push(`✅ Présents : ${names(by('ok'))}`);
+  if(by('np').length)L.push(`➖ Non prévus : ${names(by('np'))}`);
+  if(by('').length)L.push(`❔ Non renseignés : ${names(by(''))}`);
+  if(!S.rows.length)L.push('Liste du personnel à renseigner.');
+  const items=C.groups.flatMap(g=>g.items);const of=st=>items.filter(i=>(i.s||'')===st);
+  L.push('',`🧹 CONTRÔLE DES ESPACES — ${C.ready}/${C.n-C.na} prêts${C.fix?` · ${C.fix} à corriger`:''}`);
+  of('fix').forEach(i=>L.push(`⚠️ ${i.label}${i.note?' — '+i.note:''}${i.r?' → '+i.r:''}${i.h?' ('+hhmm(i.h)+')':''}${i.photos?` · ${i.photos} photo${i.photos>1?'s':''}`:''}`));
+  if(of('').length)L.push(`❔ À vérifier : ${of('').map(i=>i.label).join(', ')}`);
+  if(of('na').length)L.push(`➖ Non concernés : ${of('na').map(i=>i.label).join(', ')}`);
+  if(of('ok').length)L.push(of('ok').length===items.length?'✅ Tout est prêt.':`✅ Prêts : ${of('ok').map(i=>i.label).join(', ')}`);
+  const cl=R.clientes;
+  L.push('',`👩 CLIENTES — ${cl.n} fiche${cl.n>1?'s':''}${cl.sent?` · ${cl.sent} programme${cl.sent>1?'s':''} envoyé${cl.sent>1?'s':''}`:''}${cl.depense?` · ${fmt(cl.depense)} DH`:''}`);
+  if(!cl.rows.length)L.push('Aucune cliente renseignée.');
+  cl.rows.forEach(c=>{L.push(`• ${c.bracelet?'N° '+c.bracelet+' · ':''}${c.nom}${c.h?' · arrivée '+hhmm(c.h):''}${c.dep?' · départ '+hhmm(c.dep):''}${c.venue?' · '+c.venue.toLowerCase():''}`);
+    if(c.steps.length)L.push(`   ${c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' ✓':''}`).join(' → ')}`);
+    if(c.sentAt)L.push(`   💬 Programme envoyé sur WhatsApp à ${hhmm(c.sentAt)}`);
+    if(c.type)L.push(`   ${/Réclamation|Incident/.test(c.type)?'🔴':'🟢'} ${c.type}${c.motif?' : '+c.motif:''}${c.rep?' — réponse : '+c.rep:''} (${c.traite?'traité':'à traiter'})`)});
+  L.push('','📝 BILAN / PRIORITÉS DE DEMAIN',R.bilan.note||'Non renseigné.');
   return L.join('\n');
 }
 function flush(){
@@ -221,20 +233,31 @@ function removePhoto(id,i){const c=checkOf(id);const p=(c.photos||[])[i];if(!p)r
 
 /* ---------- COMPTE RENDU ---------- */
 function renderCR(){
-  const R=buildResume();const S=R.staff,C=R.checks;
+  const R=buildResume();const S=R.staff,C=R.checks,cl=R.clientes;
   const line=(cls,title,txt,extra='')=>`<div class="crline ${cls}"><b>${esc(title)}</b><span>${txt}</span>${extra}</div>`;
-  const staff=S.rows.length?S.rows.map(r=>line(r.st==='ok'?'ok':r.st==='late'?'fix':r.st==='abs'?'urg':r.st==='np'?'na':'',r.nom,esc(r.serv||'poste à préciser'),`<span class="chip ${r.st==='ok'?'ok':r.st==='late'?'fix':r.st==='abs'?'urg':''}">${esc(r.label)}${r.arr?' · '+esc(hhmm(r.arr)):''}</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join(''):'<div class="empty">Liste du personnel à renseigner.</div>';
-  const checks=C.groups.map(g=>`<div class="crsec"><h4>${esc(g.title)}</h4>${g.items.map(i=>line(i.s||'',i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip ${i.s||''}">${esc(i.status)}</span>${i.photos?`<span class="msg photos">${(state.checks.items[i.id]?.photos||[]).map(p=>photoThumb(p,'mthumb')).join('')}</span>`:''}`)).join('')}</div>`).join('');
-  const cl=R.clientes.rows.length?R.clientes.rows.map(c=>line(c.type&&/Réclamation|Incident/.test(c.type)?'urg':c.type?'ok':'',(c.bracelet?'N° '+c.bracelet+' — ':'')+c.nom,[c.h?'arrivée '+hhmm(c.h):'',c.dep?'départ '+hhmm(c.dep):'',c.venue?c.venue.toLowerCase():'',c.montant!==null?fmt(c.montant)+' DH':''].filter(Boolean).map(esc).join(' · '),`<span class="chip ${c.statut.startsWith('Envoyé')?'ok':''}">${esc(c.statut)}</span>${c.steps.length?`<span class="msg">${c.steps.map(s=>esc((s.time?hhmm(s.time)+' ':'')+s.act+(s.ok?' ✓':''))).join('  →  ')}</span>`:''}${c.type?`<span class="msg">${esc(c.type)}${c.motif?' : '+esc(c.motif):''}${c.rep?' — réponse : '+esc(c.rep):''} · ${c.traite?'traité':'à traiter'}</span>`:''}`)).join(''):'<div class="empty">Aucune cliente renseignée aujourd\'hui.</div>';
-  const msgs=R.messages.length?R.messages.map(m=>line('ok',m.nom,esc(m.canal+' · '+hhmm(m.sentAt)+(m.tel?' · '+m.tel:'')),`<span class="msg">${esc(m.body)}</span>`)).join(''):'<div class="empty">Aucun envoi consigné.</div>';
+  const chips=(lbl,arr,cls)=>arr.length?`<div class="chiprow"><span class="lbl">${lbl}</span>${arr.map(x=>`<span class="chip ${cls}">${esc(x)}</span>`).join('')}</div>`:'';
+  const by=st=>S.rows.filter(r=>r.st===st);const poste=r=>r.serv?r.serv.split(' · ')[0]:'';
+  const staff=(S.rows.length?'':'<div class="empty">Liste du personnel à renseigner.</div>')
+    +by('late').map(r=>line('fix',r.nom,esc(poste(r)),`<span class="chip fix">Retard${r.arr?' · '+esc(hhmm(r.arr)):''}</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join('')
+    +by('abs').map(r=>line('urg',r.nom,esc(poste(r)),`<span class="chip urg">Absent</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join('')
+    +chips('Présents',by('ok').map(r=>r.nom+(r.arr?' · '+hhmm(r.arr):'')),'ok')+chips('Non prévus',by('np').map(r=>r.nom),'')+chips('Non renseignés',by('').map(r=>r.nom),'');
+  const items=C.groups.flatMap(g=>g.items);const of=st=>items.filter(i=>(i.s||'')===st);
+  const spaces=of('fix').map(i=>line('fix',i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip fix">À corriger</span>${i.photos?`<span class="msg photos">${(state.checks.items[i.id]?.photos||[]).map(p=>photoThumb(p,'mthumb')).join('')}</span>`:''}`)).join('')
+    +chips('À vérifier',of('').map(i=>i.label),'fix')+chips('Non concernés',of('na').map(i=>i.label),'')
+    +(of('ok').length===items.length?'<div class="verdict ok">✓ Tout est prêt.</div>':chips('Prêts',of('ok').map(i=>i.label),'ok'));
+  const clientes=cl.rows.length?cl.rows.map(c=>{const bad=/Réclamation|Incident/.test(c.type);
+    return line(c.type?(bad?'urg':'ok'):'',(c.bracelet?'N° '+c.bracelet+' · ':'')+c.nom,[c.h?'arrivée '+hhmm(c.h):'',c.dep?'départ '+hhmm(c.dep):'',c.venue?c.venue.toLowerCase():'',c.montant!==null?fmt(c.montant)+' DH':''].filter(Boolean).map(esc).join(' · '),
+      `<span class="chip ${c.sentAt?'ok':''}">${c.sentAt?'💬 envoyé '+esc(hhmm(c.sentAt)):esc(c.statut)}</span>`
+      +(c.steps.length?`<span class="msg">${c.steps.map(s=>esc((s.time?hhmm(s.time)+' ':'')+s.act+(s.ok?' ✓':''))).join('  →  ')}</span>`:'')
+      +(c.type?`<span class="msg"><b>${esc(c.type)}</b>${c.motif?' : '+esc(c.motif):''}${c.rep?' — réponse : '+esc(c.rep):''} · ${c.traite?'traité':'à traiter'}</span>`:''))}).join(''):'<div class="empty">Aucune cliente renseignée aujourd\'hui.</div>';
+  const sum=(n,cls='')=>`<span class="chip ${cls}">${n}</span>`;
   return `<div class="card"><div class="ch"><h3>Compte rendu — ${longDate(day)}</h3><button class="pill" data-copy>Copier le texte</button>${navigator.share?'<button class="pill" data-share>Partager</button>':''}</div>
     <p class="note" style="margin:-6px 0 0">Généré à partir des saisies du jour. Sur le serveur AVA Bay, la même synthèse part par e-mail à 11h et 20h.</p>
-    <div class="kpis"><div class="kpi ${S.abs?'urg':'ok'}"><b class="num">${S.ok+S.late}/${S.total}</b><span>Présents</span><small>${S.late} retard${S.late>1?'s':''} · ${S.abs} absent${S.abs>1?'s':''}</small></div><div class="kpi ${C.fix?'fix':'ok'}"><b class="num">${C.ready}/${C.n-C.na}</b><span>Points prêts</span><small>${C.fix} à corriger · ${C.todo} à vérifier</small></div><div class="kpi pole"><b class="num">${R.clientes.n}</b><span>Clientes</span><small>${R.clientes.sent} programme${R.clientes.sent>1?'s':''} envoyé${R.clientes.sent>1?'s':''}</small></div><div class="kpi ${R.clientes.retours.some(r=>/Réclamation|Incident/.test(r.type))?'urg':''}"><b class="num">${R.clientes.retours.length}</b><span>Retours</span><small>${R.clientes.depense?fmt(R.clientes.depense)+' DH de dépense':'—'}</small></div></div></div>
-    <div class="card"><h3>Personnel</h3><div class="crsec">${staff}</div></div>
-    <div class="card"><h3>Contrôle des espaces</h3>${checks}</div>
-    <div class="card"><h3>Parcours clientes</h3><div class="crsec">${cl}</div></div>
-    <div class="card"><h3>Messages envoyés</h3><div class="crsec">${msgs}</div></div>
-    <div class="card"><h3>Bilan / priorités du lendemain</h3><p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
+    <div class="kpis"><div class="kpi ${S.abs?'urg':S.late?'fix':'ok'}"><b class="num">${S.ok+S.late}/${S.total}</b><span>Présents</span><small>${S.late} retard${S.late>1?'s':''} · ${S.abs} absent${S.abs>1?'s':''}</small></div><div class="kpi ${C.fix?'fix':'ok'}"><b class="num">${C.ready}/${C.n-C.na}</b><span>Espaces prêts</span><small>${C.fix} à corriger · ${C.todo} à vérifier</small></div><div class="kpi pole"><b class="num">${cl.n}</b><span>Clientes</span><small>${cl.sent} programme${cl.sent>1?'s':''} envoyé${cl.sent>1?'s':''}</small></div><div class="kpi ${cl.retours.some(r=>/Réclamation|Incident/.test(r.type))?'urg':''}"><b class="num">${cl.retours.length}</b><span>Retours</span><small>${cl.depense?fmt(cl.depense)+' DH de dépense':'—'}</small></div></div></div>
+    <div class="card"><div class="ch"><h3>👥 Personnel</h3>${sum(`${S.ok+S.late} présent${S.ok+S.late>1?'s':''} sur ${S.total}`,S.abs?'urg':'ok')}</div><div class="crsec">${staff}</div></div>
+    <div class="card"><div class="ch"><h3>🧹 Contrôle des espaces</h3>${sum(`${C.ready}/${C.n-C.na} prêts`,C.fix?'fix':'ok')}</div><div class="crsec">${spaces}</div></div>
+    <div class="card"><div class="ch"><h3>👩 Clientes</h3>${sum(`${cl.n} fiche${cl.n>1?'s':''}${cl.sent?' · '+cl.sent+' envoi'+(cl.sent>1?'s':''):''}`,'pole')}</div><div class="crsec">${clientes}</div></div>
+    <div class="card"><h3>📝 Bilan / priorités de demain</h3><p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
     <div class="card"><div class="ch"><h3>Version texte</h3><span class="note">à coller dans WhatsApp ou un e-mail</span></div><pre class="crtext" id="crtext">${esc(R.text)}</pre></div>`;
 }
 
