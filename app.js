@@ -41,9 +41,11 @@ let day=todayISO();
 let state=blank();
 let team={rows:TEAM_DEFAULT.map((r,i)=>({id:'t'+i,sec:r[0],prenom:r[1],nom:r[2],fonction:r[3]}))},clients={rows:[]};
 let view='jour';
-let open=new Set(['staff','spaces']),detail=new Set(),editMember=null,clientQ='';
+let open=new Set(),detail=new Set(),editMember=null,clientQ='';
 let db=null,dbUnsub=null,teamUnsub=null,clientsUnsub=null;
 let dirty=false,dirtyTeam=false,dirtyClients=false,writeTimer=null,writing=Promise.resolve(),lastEditAt=0;
+let photos={};try{photos=JSON.parse(localStorage.getItem(LS+'photos')||'{}')}catch(e){}
+const MAX_PHOTOS=4;
 
 function blank(){return {regs:{staff:[],client:[]},checks:{items:{}},bilan:{note:''}}}
 function norm(o){const b=blank();o=o||{};return {regs:{staff:o.regs?.staff||[],client:o.regs?.client||[]},checks:{items:o.checks?.items||{}},bilan:Object.assign(b.bilan,o.bilan||{})}}
@@ -70,7 +72,7 @@ function buildResume(){
   const st=staffStats();
   const staff={total:st.total,ok:st.ok,late:st.late,abs:st.abs,np:st.np,rows:team.rows.filter(m=>fullName(m)).map(m=>{const r=staffRow(m)||{};const q=pStatus(r);return {nom:fullName(m),serv:[m.fonction,m.sec].filter(Boolean).join(' · '),st:q,label:PS[q],arr:q==='ok'||q==='late'?(r.arr||''):'',obs:r.obs||''}})};
   const cs=checkStats();
-  const checks={n:cs.n,ready:cs.ok,fix:cs.fix,na:cs.na,todo:cs.n-cs.done,groups:CHECKS.map(g=>({id:g.id,title:g.title,items:g.items.map(([id,label])=>{const c=state.checks.items[id]||{};return {id,label,s:c.s||'',status:CS[c.s||''],note:c.note||'',r:c.r||'',h:c.h||''}})}))};
+  const checks={n:cs.n,ready:cs.ok,fix:cs.fix,na:cs.na,todo:cs.n-cs.done,groups:CHECKS.map(g=>({id:g.id,title:g.title,items:g.items.map(([id,label])=>{const c=state.checks.items[id]||{};return {id,label,s:c.s||'',status:CS[c.s||''],note:c.note||'',r:c.r||'',h:c.h||'',photos:(c.photos||[]).length}})}))};
   const fr=(state.regs.client||[]).slice().sort((a,b)=>(a.h||'').localeCompare(b.h||''));
   const RT={comp:'Compliment',recl:'Réclamation',dem:'Demande particulière',inc:'Incident',avis:'Avis en ligne'};
   const clientes={n:fr.length,sent:fr.filter(f=>f.sentAt).length,depense:fr.reduce((a,f)=>a+(num(f.montant)||0),0),
@@ -85,7 +87,7 @@ function reportText(R){
   const L=['AVA BAY — COMPTE RENDU',longDate(day),'','PERSONNEL',`${R.staff.ok+R.staff.late} présent(s) sur ${R.staff.total} membre(s) renseigné(s)${R.staff.abs?` · ${R.staff.abs} absent(s)`:''}${R.staff.late?` · ${R.staff.late} en retard`:''}.`];
   R.staff.rows.forEach(r=>L.push(`${r.nom} — ${r.serv||'poste à préciser'} : ${r.label}${r.arr?' ('+hhmm(r.arr)+')':''}${r.obs?' — '+r.obs:''}`));
   L.push('','CONTRÔLE DES ESPACES',`${R.checks.ready}/${R.checks.n-R.checks.na} points prêts · ${R.checks.fix} à corriger${R.checks.todo?` · ${R.checks.todo} à vérifier`:''}.`);
-  R.checks.groups.forEach(g=>{L.push('· '+g.title);g.items.forEach(i=>L.push(`  ${i.label} : ${i.status}${i.note?' — '+i.note:''}${i.r?' ('+i.r+')':''}`))});
+  R.checks.groups.forEach(g=>{L.push('· '+g.title);g.items.forEach(i=>L.push(`  ${i.label} : ${i.status}${i.note?' — '+i.note:''}${i.r?' ('+i.r+')':''}${i.photos?` · ${i.photos} photo${i.photos>1?'s':''}`:''}`))});
   L.push('','PARCOURS CLIENTES');
   if(!R.clientes.rows.length)L.push('Aucune cliente renseignée.');
   R.clientes.rows.forEach(c=>L.push(`${c.bracelet?'N° '+c.bracelet+' — ':''}${c.nom}${c.h?' · arrivée '+hhmm(c.h):''}${c.venue?' · '+c.venue.toLowerCase():''} : ${c.steps.length?c.steps.map(s=>`${s.time?hhmm(s.time)+' ':''}${s.act}${s.ok?' (confirmée)':''}`).join(' → '):'parcours à construire'}${c.type?' — '+c.type+(c.motif?' : '+c.motif:''):''}`));
@@ -191,24 +193,38 @@ function staffItem(m){
 }
 function checkItem(it){
   const c=state.checks.items[it.id]||{};const dk='chk:'+it.id;const s=c.s||'';
-  const meta=[];if(c.h)meta.push(`<span>⏱ ${esc(hhmm(c.h))}</span>`);if(c.r)meta.push(`<span>→ ${esc(c.r)}</span>`);if(c.note)meta.push(`<span class="obs">${esc(c.note)}</span>`);
+  const meta=[];if(c.h)meta.push(`<span>⏱ ${esc(hhmm(c.h))}</span>`);if(c.r)meta.push(`<span>→ ${esc(c.r)}</span>`);if(c.note)meta.push(`<span class="obs">${esc(c.note)}</span>`);(c.photos||[]).forEach(p=>meta.push(photoThumb(p,'mthumb')));
+  const ph=c.photos||[];const photosHtml=`<label class="full">Photos <span style="font-weight:400;text-transform:none;letter-spacing:0">(${ph.length}/${MAX_PHOTOS})</span><div class="photos">${ph.map((p,i)=>`<span class="pth">${photoThumb(p,'')}<button type="button" class="x" data-prm="${it.id}:${i}" aria-label="Retirer la photo">×</button></span>`).join('')}${ph.length<MAX_PHOTOS?`<span class="pbtn"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 5h2.5l1-2h5l1 2H14v8H2z"/><circle cx="8" cy="9" r="2.5"/></svg><span>${ph.length?'Ajouter une photo':'Prendre / choisir des photos'}</span><input type="file" accept="image/*" capture="environment" multiple data-photo="${it.id}"></span>`:''}</div></label>`;
   return `<div class="item s-${s||'none'}" data-cid="${it.id}">
     <div class="txt">${esc(it.label)}${meta.length?`<div class="meta">${meta.join('')}</div>`:''}</div>
     <div class="seg" role="group"><button class="ok" data-s="ok" aria-pressed="${s==='ok'}">Prêt</button><button class="fix" data-s="fix" aria-pressed="${s==='fix'}">À corriger</button><button class="na" data-s="na" aria-pressed="${s==='na'}">Non concerné</button></div>
-    <button class="detail ${detail.has(dk)?'on':''} ${c.note||c.r?'has':''}" data-toggle="${dk}" aria-label="Détails"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11.5 2.5l2 2L6 12H4v-2z"/><path d="M3 14h10"/></svg></button>
-    ${detail.has(dk)?`<div class="more"><label>Heure<input type="time" data-f="h" value="${esc(c.h||'')}"></label><label>Responsable<input type="text" data-f="r" list="teamlist" value="${esc(c.r||'')}" placeholder="Qui s'en occupe"></label><label class="full">À régler<textarea data-f="note" placeholder="Précisez ce qu'il faut régler">${esc(c.note||'')}</textarea></label></div>`:''}</div>`;
+    <button class="detail ${detail.has(dk)?'on':''} ${c.note||c.r||ph.length?'has':''}" data-toggle="${dk}" aria-label="Détails"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M11.5 2.5l2 2L6 12H4v-2z"/><path d="M3 14h10"/></svg></button>
+    ${detail.has(dk)?`<div class="more"><label>Heure<input type="time" data-f="h" value="${esc(c.h||'')}"></label><label>Responsable<input type="text" data-f="r" list="teamlist" value="${esc(c.r||'')}" placeholder="Qui s'en occupe"></label><label class="full">À régler<textarea data-f="note" placeholder="Précisez ce qu'il faut régler">${esc(c.note||'')}</textarea></label>${photosHtml}</div>`:''}</div>`;
 }
 function setCheck(id,s){const c=checkOf(id);if(c.s===s)delete c.s;else{c.s=s;if(s==='fix'&&!c.h)c.h=new Date().toTimeString().slice(0,5)}if(c.s==='fix')detail.add('chk:'+id);if(!Object.keys(c).length)delete state.checks.items[id];persist();render()}
 function setPointage(m,p){const n=fullName(m);if(!n)return;let r=staffRow(m);if(!r){r={id:uid(),mid:m.id,nom:n,serv:[m.fonction,m.sec].filter(Boolean).join(' · ')};state.regs.staff.push(r)}
   const cur=pStatus(r);delete r.np;if(cur===p){delete r.present;delete r.retard;delete r.arr}else if(p==='ok'){r.present=true;r.retard=false;if(!r.arr)r.arr=new Date().toTimeString().slice(0,5)}else if(p==='late'){r.present=true;r.retard=true;if(!r.arr)r.arr=new Date().toTimeString().slice(0,5);detail.add('staff:'+m.id)}else if(p==='abs'){r.present=false;r.retard=false;delete r.arr;detail.add('staff:'+m.id)}else{r.np=true;delete r.present;delete r.retard;delete r.arr}
   persist();render()}
 
+/* ---------- photos (stockées sur l'appareil, 4 par point au maximum) ---------- */
+function photoSrc(p){return p&&p.local?photos[p.local]||null:null}
+function photoThumb(p,cls){const src=photoSrc(p);if(!src)return `<span class="pinfo">photo sur un autre appareil</span>`;return `<img class="${cls}" src="${src}" alt="Photo" data-lb="1">`}
+function shrink(file,max=1200,q=.78){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*r);c.height=Math.round(img.height*r);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error('blob')),'image/jpeg',q)};img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('img'))};img.src=u})}
+async function addPhotos(id,files){const c=checkOf(id);c.photos=c.photos||[];const room=MAX_PHOTOS-c.photos.length;
+  for(const file of [...files].slice(0,Math.max(0,room))){let blob;try{blob=await shrink(file)}catch(e){blob=file}
+    const dataUrl=await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(blob)});
+    const key=day+':'+id+':'+uid();photos[key]=dataUrl;
+    try{localStorage.setItem(LS+'photos',JSON.stringify(photos))}catch(e){delete photos[key];setSync('','Mémoire photos pleine');break}
+    c.photos.push({local:key})}
+  if(!c.s)c.s='fix';persist();render()}
+function removePhoto(id,i){const c=checkOf(id);const p=(c.photos||[])[i];if(!p)return;c.photos.splice(i,1);if(!c.photos.length)delete c.photos;if(p.local){delete photos[p.local];try{localStorage.setItem(LS+'photos',JSON.stringify(photos))}catch(e){}}persist();render()}
+
 /* ---------- COMPTE RENDU ---------- */
 function renderCR(){
   const R=buildResume();const S=R.staff,C=R.checks;
   const line=(cls,title,txt,extra='')=>`<div class="crline ${cls}"><b>${esc(title)}</b><span>${txt}</span>${extra}</div>`;
   const staff=S.rows.length?S.rows.map(r=>line(r.st==='ok'?'ok':r.st==='late'?'fix':r.st==='abs'?'urg':r.st==='np'?'na':'',r.nom,esc(r.serv||'poste à préciser'),`<span class="chip ${r.st==='ok'?'ok':r.st==='late'?'fix':r.st==='abs'?'urg':''}">${esc(r.label)}${r.arr?' · '+esc(hhmm(r.arr)):''}</span>${r.obs?`<span class="msg">${esc(r.obs)}</span>`:''}`)).join(''):'<div class="empty">Liste du personnel à renseigner.</div>';
-  const checks=C.groups.map(g=>`<div class="crsec"><h4>${esc(g.title)}</h4>${g.items.map(i=>line(i.s||'',i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip ${i.s||''}">${esc(i.status)}</span>`)).join('')}</div>`).join('');
+  const checks=C.groups.map(g=>`<div class="crsec"><h4>${esc(g.title)}</h4>${g.items.map(i=>line(i.s||'',i.label,[i.note,i.r?'→ '+i.r:'',i.h?hhmm(i.h):''].filter(Boolean).map(esc).join(' · '),`<span class="chip ${i.s||''}">${esc(i.status)}</span>${i.photos?`<span class="msg photos">${(state.checks.items[i.id]?.photos||[]).map(p=>photoThumb(p,'mthumb')).join('')}</span>`:''}`)).join('')}</div>`).join('');
   const cl=R.clientes.rows.length?R.clientes.rows.map(c=>line(c.type&&/Réclamation|Incident/.test(c.type)?'urg':c.type?'ok':'',(c.bracelet?'N° '+c.bracelet+' — ':'')+c.nom,[c.h?'arrivée '+hhmm(c.h):'',c.dep?'départ '+hhmm(c.dep):'',c.venue?c.venue.toLowerCase():'',c.montant!==null?fmt(c.montant)+' DH':''].filter(Boolean).map(esc).join(' · '),`<span class="chip ${c.statut.startsWith('Envoyé')?'ok':''}">${esc(c.statut)}</span>${c.steps.length?`<span class="msg">${c.steps.map(s=>esc((s.time?hhmm(s.time)+' ':'')+s.act+(s.ok?' ✓':''))).join('  →  ')}</span>`:''}${c.type?`<span class="msg">${esc(c.type)}${c.motif?' : '+esc(c.motif):''}${c.rep?' — réponse : '+esc(c.rep):''} · ${c.traite?'traité':'à traiter'}</span>`:''}`)).join(''):'<div class="empty">Aucune cliente renseignée aujourd\'hui.</div>';
   const msgs=R.messages.length?R.messages.map(m=>line('ok',m.nom,esc(m.canal+' · '+hhmm(m.sentAt)+(m.tel?' · '+m.tel:'')),`<span class="msg">${esc(m.body)}</span>`)).join(''):'<div class="empty">Aucun envoi consigné.</div>';
   return `<div class="card"><div class="ch"><h3>Compte rendu — ${longDate(day)}</h3><button class="pill" data-copy>Copier le texte</button>${navigator.share?'<button class="pill" data-share>Partager</button>':''}</div>
@@ -365,6 +381,7 @@ V.addEventListener('click',e=>{
   const t=e.target;const b=t.closest('button');
   const nv=t.closest('[data-view]');if(nv){go(nv.dataset.view);return}
   if(t.closest('[data-stop]'))return;
+  const lb=t.closest('img[data-lb]');if(lb){const d=document.createElement('div');d.className='lb';d.innerHTML=`<img src="${lb.getAttribute('src')}" alt="">`;d.onclick=()=>d.remove();document.body.appendChild(d);return}
   const oc=t.closest('[data-opencl]');if(oc&&!b){clientOpen=clientOpen===oc.dataset.opencl?null:oc.dataset.opencl;render();return}
   const of=t.closest('[data-openfiche]');if(of&&!b){fiche=of.dataset.openfiche;const f=fichesToday().find(r=>r.id===fiche);ficheStep=f.sentAt||ficheSteps(f).length?3:1;ficheIntern=false;render();return}
   if(!b){const h=t.closest('header[data-fold]');if(h&&!t.closest('button')){const k=h.dataset.fold;open.has(k)?open.delete(k):open.add(k);render()}return}
@@ -374,6 +391,7 @@ V.addEventListener('click',e=>{
   if(D.s){setCheck(b.closest('.item').dataset.cid,D.s);return}
   if(D.p){const m=team.rows.find(x=>x.id===b.closest('.item').dataset.mid);setPointage(m,D.p);return}
   if(D.toggle){detail.has(D.toggle)?detail.delete(D.toggle):detail.add(D.toggle);render();return}
+  if(D.prm){const [id,i]=D.prm.split(':');removePhoto(id,+i);return}
   if(D.allok){CHECKS.filter(g=>D.allok==='all'||g.id===D.allok).forEach(g=>g.items.forEach(([id])=>{const c=checkOf(id);if(!c.s)c.s='ok'}));persist();render();return}
   if(D.allpresent!==undefined){team.rows.forEach(m=>{const n=fullName(m);if(!n||pStatus(staffRow(m)))return;state.regs.staff.push({id:uid(),mid:m.id,nom:n,serv:[m.fonction,m.sec].filter(Boolean).join(' · '),present:true,retard:false,arr:new Date().toTimeString().slice(0,5)})});persist();render();return}
   if(D.editmember){editMember=D.editmember;render();return}
@@ -424,6 +442,7 @@ V.addEventListener('change',e=>{
   const t=e.target;const D=t.dataset;
   if(t.id==='addAct'&&t.value){const f=fichesToday().find(r=>r.id===fiche);const [z,a]=t.value.split('|');ficheSteps(f).push({id:uid(),zone:z,act:a,time:'',dispo:'',ok:false});f.presta=f.steps.map(x=>x.act);persist();render();return}
   if(D.sk||D.fk){if(t.type==='checkbox'||D.sk==='time'||D.fk==='type'||D.fk==='st'||(D.fk==='tel'&&ficheStep===3))render();return}
+  if(D.photo!==undefined){const fs=t.files;if(!fs||!fs.length)return;const btn=t.closest('.pbtn');btn.classList.add('busy');btn.querySelector('span').textContent='Envoi…';addPhotos(D.photo,fs);return}
   if(D.f||D.pf){render();return}
   if(D.m==='sec'){render();return}
   if(D.c&&(D.c==='nom'||D.c==='tel'||D.c==='vip')){render();return}

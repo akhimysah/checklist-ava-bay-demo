@@ -8,7 +8,8 @@ L'application publique de l'équipe (`checklist-ava-bay`, checklist.avabay-marra
 - **Journée** : une seule page, deux blocs à cocher.
   - *Présence du personnel* — Présent · Retard · Absent · Non prévu, heure d'arrivée et observation. Ajout de personnel depuis l'en-tête.
   - *Contrôle des espaces* — en deux sous-parties : *Propreté* (accueil, vestiaires, sanitaires, salle de prière, piscine, restauration, spa/hammam, AVA LAND, coworking) et *Mise en place* (télévisions, musique, tables, transats, serviettes, hammam).
-  - Chaque point : **Prêt · À corriger · Non concerné**, avec « à régler » et responsable quand il y a un souci.
+  - Chaque point : **Prêt · À corriger · Non concerné**, avec « à régler », responsable et jusqu'à 4 photos quand il y a un souci.
+  - Les deux blocs arrivent repliés : on ouvre ce qu'on veut contrôler.
   - *Bilan / priorités du lendemain* — un seul champ libre.
 - **Compte rendu** : généré à partir de ces éléments — personnel, contrôle des espaces, parcours clientes, messages envoyés, bilan. Version écran + version texte à copier / partager. `server/rapport.php` produit le même compte rendu par e-mail (11h et 20h).
 
@@ -32,4 +33,5 @@ L'application publique de l'équipe (`checklist-ava-bay`, checklist.avabay-marra
 
 - En démo (GitHub Pages), les saisies restent dans le navigateur, sous des clés `ava3-…` distinctes de l'application actuelle.
 - À la première ouverture sur un appareil qui a déjà l'application actuelle, l'équipe et la base clientes sont reprises automatiquement.
+- Les photos restent sur l'appareil qui les a prises (pas d'envoi serveur dans la démo) ; le compte rendu e-mail indique seulement leur nombre.
 - Les documents serveur gardent la même forme : `jours/jour-<date>/parts/<staff|checks|client|bilan|resume>`, `equipe/liste`, `clients/liste`.

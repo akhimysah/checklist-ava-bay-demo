@@ -483,3 +483,13 @@ table.ca tr.total td{padding:9px 8px;font-weight:700;border-top:2px solid var(--
 @media(max-width:700px){.zone>header .allok.addp{font-size:11px;padding:6px 8px}}
 .item .edit{grid-template-columns:1fr 1fr 1.5fr 1.2fr}
 @media(max-width:600px){.item .edit{grid-template-columns:1fr 1fr}.item .edit input:last-child{grid-column:auto}}
+/* photos par point (4 max) */
+.photos{display:flex;flex-wrap:wrap;gap:10px;align-items:center;text-transform:none;letter-spacing:0;font-weight:500}
+.pth{position:relative;flex:none}
+.pth img{width:72px;height:72px;border-radius:10px;object-fit:cover;border:1px solid var(--line);cursor:zoom-in;display:block;background:var(--surface-2)}
+.pth .x{position:absolute;top:-7px;right:-7px;width:22px;height:22px;border-radius:50%;background:var(--urg);color:#fff;font-size:14px;font-weight:700;line-height:1;display:grid;place-items:center;box-shadow:var(--shadow)}
+.photos .pbtn{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:9px;background:var(--pole);color:var(--pole-ink);font-size:12.5px;font-weight:700;cursor:pointer;position:relative;overflow:hidden}
+.photos .pbtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.photos .pbtn.busy{opacity:.6;pointer-events:none}
+.crline .msg.photos{display:flex;gap:6px;background:none;padding:0}
+.crline .msg.photos img{width:48px;height:48px}
