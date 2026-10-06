@@ -5,13 +5,12 @@ L'application publique de l'équipe (`checklist-ava-bay`, checklist.avabay-marra
 
 ## Ce qui change
 
-- **Journée** : une seule page, trois blocs à cocher.
-  - *Présence du personnel* — Présent · Retard · Absent · Non prévu, heure d'arrivée et observation.
-  - *Propreté des espaces* — 9 espaces (accueil, vestiaires, sanitaires, salle de prière, piscine, restauration, spa/hammam, AVA LAND, coworking).
-  - *Mise en place* — télévisions, musique, tables, transats, serviettes, hammam.
+- **Journée** : une seule page, deux blocs à cocher.
+  - *Présence du personnel* — Présent · Retard · Absent · Non prévu, heure d'arrivée et observation. Ajout de personnel depuis l'en-tête.
+  - *Contrôle des espaces* — en deux sous-parties : *Propreté* (accueil, vestiaires, sanitaires, salle de prière, piscine, restauration, spa/hammam, AVA LAND, coworking) et *Mise en place* (télévisions, musique, tables, transats, serviettes, hammam).
   - Chaque point : **Prêt · À corriger · Non concerné**, avec « à régler » et responsable quand il y a un souci.
   - *Bilan / priorités du lendemain* — un seul champ libre.
-- **Compte rendu** : généré à partir de ces éléments — personnel, espaces et mise en place, parcours clientes, messages envoyés, bilan. Version écran + version texte à copier / partager. `server/rapport.php` produit le même compte rendu par e-mail (11h et 20h).
+- **Compte rendu** : généré à partir de ces éléments — personnel, contrôle des espaces, parcours clientes, messages envoyés, bilan. Version écran + version texte à copier / partager. `server/rapport.php` produit le même compte rendu par e-mail (11h et 20h).
 
 ## Ce qui est conservé tel quel
 

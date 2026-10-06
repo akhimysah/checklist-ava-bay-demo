@@ -1,7 +1,7 @@
 <?php
 /* AVA Bay — Suivi quotidien (démo) : compte rendu e-mail automatique (11h et 20h, heure de Marrakech).
    Même mécanique que l'application actuelle (tâche cron chaque heure, un seul envoi par créneau),
-   mais le contenu reprend la nouvelle checklist : personnel, espaces et mise en place,
+   mais le contenu reprend la nouvelle checklist : personnel, contrôle des espaces (propreté, mise en place),
    parcours clientes, messages envoyés, bilan / priorités du lendemain.
    Usage manuel : php rapport.php dry 11   (affiche le message sans l'envoyer)
                   php rapport.php force 20 (envoie tout de suite le compte rendu de 20h) */
@@ -49,7 +49,7 @@ if (!$R) {
     $CS = ['ok' => 'Prêt', 'fix' => 'À corriger', 'na' => 'Non concerné', '' => 'À vérifier'];
     $PS = ['ok' => 'Présent', 'late' => 'Retard', 'abs' => 'Absent', 'np' => 'Non prévu', '' => 'À renseigner'];
     $CHECKS = [
-      ['title' => 'Propreté des espaces', 'items' => [['clean-reception','Accueil / réception'],['clean-changing','Vestiaires'],['clean-toilets','Sanitaires'],['clean-prayer','Salle de prière'],['clean-pool','Piscine et espaces extérieurs'],['clean-dining','Salle de restauration'],['clean-spa','Spa, hammam et beauté'],['clean-kids','AVA LAND'],['clean-coworking','Coworking / espaces communs']]],
+      ['title' => 'Propreté', 'items' => [['clean-reception','Accueil / réception'],['clean-changing','Vestiaires'],['clean-toilets','Sanitaires'],['clean-prayer','Salle de prière'],['clean-pool','Piscine et espaces extérieurs'],['clean-dining','Salle de restauration'],['clean-spa','Spa, hammam et beauté'],['clean-kids','AVA LAND'],['clean-coworking','Coworking / espaces communs']]],
       ['title' => 'Mise en place', 'items' => [['tv','Télévisions allumées'],['music','Musique allumée'],['tables','Tables dressées'],['loungers','Transats installés'],['towels','Serviettes disponibles'],['hammam','Hammam allumé']]],
     ];
     $R = ['date' => $day, 'staff' => ['total' => 0, 'ok' => 0, 'late' => 0, 'abs' => 0, 'np' => 0, 'rows' => []], 'checks' => ['n' => 0, 'ready' => 0, 'fix' => 0, 'na' => 0, 'todo' => 0, 'groups' => []], 'clientes' => ['n' => 0, 'sent' => 0, 'depense' => 0, 'rows' => [], 'retours' => []], 'messages' => [], 'bilan' => ['note' => $raw['bilan']['note'] ?? ''], 'partial' => true];
@@ -101,7 +101,7 @@ if (!$R) {
 
   /* --- espaces et mise en place --- */
   $K = $R['checks'];
-  $b .= h2('Espaces et mise en place');
+  $b .= h2('Contrôle des espaces');
   $b .= '<p style="margin:4px 0">' . (int)$K['ready'] . '/' . ((int)$K['n'] - (int)$K['na']) . ' points prêts' . ($K['fix'] ? ' · <b style="color:#9B2C1D">' . (int)$K['fix'] . ' à corriger</b>' : '') . ($K['todo'] ? ' · ' . (int)$K['todo'] . ' à vérifier' : '') . '.</p>';
   foreach ($K['groups'] as $g) {
     $b .= '<p style="margin:12px 0 4px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:#6B5B50"><b>' . e($g['title']) . '</b></p>';

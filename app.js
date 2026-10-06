@@ -41,7 +41,7 @@ let day=todayISO();
 let state=blank();
 let team={rows:TEAM_DEFAULT.map((r,i)=>({id:'t'+i,sec:r[0],prenom:r[1],nom:r[2],fonction:r[3]}))},clients={rows:[]};
 let view='jour';
-let open=new Set(['staff','clean','setup']),detail=new Set(),editMember=null,clientQ='';
+let open=new Set(['staff','spaces']),detail=new Set(),editMember=null,clientQ='';
 let db=null,dbUnsub=null,teamUnsub=null,clientsUnsub=null;
 let dirty=false,dirtyTeam=false,dirtyClients=false,writeTimer=null,writing=Promise.resolve(),lastEditAt=0;
 
@@ -84,7 +84,7 @@ function buildResume(){
 function reportText(R){
   const L=['AVA BAY — COMPTE RENDU',longDate(day),'','PERSONNEL',`${R.staff.ok+R.staff.late} présent(s) sur ${R.staff.total} membre(s) renseigné(s)${R.staff.abs?` · ${R.staff.abs} absent(s)`:''}${R.staff.late?` · ${R.staff.late} en retard`:''}.`];
   R.staff.rows.forEach(r=>L.push(`${r.nom} — ${r.serv||'poste à préciser'} : ${r.label}${r.arr?' ('+hhmm(r.arr)+')':''}${r.obs?' — '+r.obs:''}`));
-  L.push('','ESPACES ET MISE EN PLACE',`${R.checks.ready}/${R.checks.n-R.checks.na} points prêts · ${R.checks.fix} à corriger${R.checks.todo?` · ${R.checks.todo} à vérifier`:''}.`);
+  L.push('','CONTRÔLE DES ESPACES',`${R.checks.ready}/${R.checks.n-R.checks.na} points prêts · ${R.checks.fix} à corriger${R.checks.todo?` · ${R.checks.todo} à vérifier`:''}.`);
   R.checks.groups.forEach(g=>{L.push('· '+g.title);g.items.forEach(i=>L.push(`  ${i.label} : ${i.status}${i.note?' — '+i.note:''}${i.r?' ('+i.r+')':''}`))});
   L.push('','PARCOURS CLIENTES');
   if(!R.clientes.rows.length)L.push('Aucune cliente renseignée.');
@@ -157,7 +157,7 @@ function renderJour(){
   const d=new Date(day+'T12:00:00');const isToday=day===todayISO();
   const wd=d.toLocaleDateString('fr-FR',{weekday:'long'}),mo=d.toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   const cs=checkStats(),ss=staffStats();const total=cs.n-cs.na;const nf=state.regs.client.length,sent=state.regs.client.filter(f=>f.sentAt).length;
-  const hero=`<div class="hero"><div class="day num">${d.getDate()}</div><div class="dmeta"><span class="wk">${mo}</span><h2>${wd[0].toUpperCase()+wd.slice(1)}</h2><p>${isToday?'Présences, propreté et mise en place : tout se coche au fur et à mesure, le compte rendu se construit tout seul.':'Journée passée ou à venir — état de ce qui a été renseigné à cette date.'}</p></div></div>
+  const hero=`<div class="hero"><div class="day num">${d.getDate()}</div><div class="dmeta"><span class="wk">${mo}</span><h2>${wd[0].toUpperCase()+wd.slice(1)}</h2><p>${isToday?'Présences et contrôle des espaces : tout se coche au fur et à mesure, le compte rendu se construit tout seul.':'Journée passée ou à venir — état de ce qui a été renseigné à cette date.'}</p></div></div>
     <div class="stats"><div class="stat ${cs.fix?'fix':cs.ok===total&&total?'ok':''}"><b class="num">${cs.ok}/${total}</b><span>Points prêts</span></div><div class="stat ${cs.fix?'fix':''}"><b class="num">${cs.fix}</b><span>À corriger</span></div><div class="stat ${ss.abs?'urg':''}"><b class="num">${ss.ok+ss.late}/${ss.total}</b><span>Présents</span></div><div class="stat"><b class="num">${nf}</b><span>Cliente${nf>1?'s':''}${sent?' · '+sent+' envoi'+(sent>1?'s':''):''}</span></div></div>`;
   /* présences */
   const secs=[...new Set(team.rows.map(m=>m.sec||'Autre'))];
@@ -165,9 +165,9 @@ function renderJour(){
   const sz={n:ss.total,done:ss.total-ss.todo,ok:ss.ok,fix:ss.late,urg:ss.abs};
   const staffZone=zoneHtml('staff','Présence du personnel','Équipe',sz,staffRows+`<div class="item" style="display:flex;gap:8px;flex-wrap:wrap"><button class="pill" data-addmember>+ Ajouter du personnel</button>${ss.todo?`<button class="pill ok" data-allpresent>Tous présents (${ss.todo} restant${ss.todo>1?'s':''})</button>`:''}</div>`,!open.has('staff'),'',`<button class="allok addp" data-addmember>+ Ajouter du personnel</button>`);
   /* propreté / mise en place */
-  const zones=CHECKS.map(g=>{const z=checkStats(g.id);const rows=g.items.map(([id])=>checkItem(CHECK_ITEMS[id])).join('');return zoneHtml(g.id,g.title,g.tag,{n:z.n,done:z.done,ok:z.ok,fix:z.fix,urg:0},rows,!open.has(g.id),z.done<z.n?`data-allok="${g.id}"`:'')}).join('');
+  const zones=(()=>{const z=checkStats();const rows=CHECKS.map(g=>{const gz=checkStats(g.id);return `<div class="tsec-in"><h4 class="tsub">${esc(g.title)} <span class="n">${gz.done}/${gz.n}</span></h4>${g.items.map(([id])=>checkItem(CHECK_ITEMS[id])).join('')}</div>`}).join('');return zoneHtml('spaces','Contrôle des espaces','Espaces',{n:z.n,done:z.done,ok:z.ok,fix:z.fix,urg:0},rows,!open.has('spaces'),z.done<z.n?'data-allok="all"':'')})();
   const bilan=`<div class="card bilan"><div class="ch"><h3>Bilan / priorités du lendemain</h3><span class="chip ${state.bilan.note?'ok':''}">${state.bilan.note?'✓ renseigné':'à renseigner'}</span></div><textarea data-note placeholder="Une difficulté, une décision, une priorité pour demain…">${esc(state.bilan.note||'')}</textarea><p class="note" style="margin:0">Repris tel quel dans le compte rendu du jour.</p></div>`;
-  const gocr=`<div class="gocr"><p><b>Compte rendu de la journée</b><br>Personnel, espaces et mise en place, parcours clientes, messages envoyés et bilan.</p><button class="addbtn" data-view="cr">Générer le compte rendu</button></div>`;
+  const gocr=`<div class="gocr"><p><b>Compte rendu de la journée</b><br>Personnel, contrôle des espaces, parcours clientes, messages envoyés et bilan.</p><button class="addbtn" data-view="cr">Générer le compte rendu</button></div>`;
   return `${hero}<div class="sec-title"><h3>Préparer la journée</h3><span>${cs.done}/${cs.n} points vérifiés · ${ss.total-ss.todo}/${ss.total} présences renseignées</span></div><div class="jour-grid">${staffZone}${zones}${bilan}${gocr}</div>`;
 }
 function zoneHtml(key,title,tag,z,rows,closed,allokAttr,extra=''){
@@ -215,7 +215,7 @@ function renderCR(){
     <p class="note" style="margin:-6px 0 0">Généré à partir des saisies du jour. Sur le serveur AVA Bay, la même synthèse part par e-mail à 11h et 20h.</p>
     <div class="kpis"><div class="kpi ${S.abs?'urg':'ok'}"><b class="num">${S.ok+S.late}/${S.total}</b><span>Présents</span><small>${S.late} retard${S.late>1?'s':''} · ${S.abs} absent${S.abs>1?'s':''}</small></div><div class="kpi ${C.fix?'fix':'ok'}"><b class="num">${C.ready}/${C.n-C.na}</b><span>Points prêts</span><small>${C.fix} à corriger · ${C.todo} à vérifier</small></div><div class="kpi pole"><b class="num">${R.clientes.n}</b><span>Clientes</span><small>${R.clientes.sent} programme${R.clientes.sent>1?'s':''} envoyé${R.clientes.sent>1?'s':''}</small></div><div class="kpi ${R.clientes.retours.some(r=>/Réclamation|Incident/.test(r.type))?'urg':''}"><b class="num">${R.clientes.retours.length}</b><span>Retours</span><small>${R.clientes.depense?fmt(R.clientes.depense)+' DH de dépense':'—'}</small></div></div></div>
     <div class="card"><h3>Personnel</h3><div class="crsec">${staff}</div></div>
-    <div class="card"><h3>Espaces et mise en place</h3>${checks}</div>
+    <div class="card"><h3>Contrôle des espaces</h3>${checks}</div>
     <div class="card"><h3>Parcours clientes</h3><div class="crsec">${cl}</div></div>
     <div class="card"><h3>Messages envoyés</h3><div class="crsec">${msgs}</div></div>
     <div class="card"><h3>Bilan / priorités du lendemain</h3><p style="margin:0;white-space:pre-wrap">${esc(R.bilan.note)||'<span class="note">Non renseigné — à compléter dans l\'onglet Journée.</span>'}</p></div>
@@ -374,7 +374,7 @@ V.addEventListener('click',e=>{
   if(D.s){setCheck(b.closest('.item').dataset.cid,D.s);return}
   if(D.p){const m=team.rows.find(x=>x.id===b.closest('.item').dataset.mid);setPointage(m,D.p);return}
   if(D.toggle){detail.has(D.toggle)?detail.delete(D.toggle):detail.add(D.toggle);render();return}
-  if(D.allok){const g=CHECKS.find(g=>g.id===D.allok);g.items.forEach(([id])=>{const c=checkOf(id);if(!c.s)c.s='ok'});persist();render();return}
+  if(D.allok){CHECKS.filter(g=>D.allok==='all'||g.id===D.allok).forEach(g=>g.items.forEach(([id])=>{const c=checkOf(id);if(!c.s)c.s='ok'}));persist();render();return}
   if(D.allpresent!==undefined){team.rows.forEach(m=>{const n=fullName(m);if(!n||pStatus(staffRow(m)))return;state.regs.staff.push({id:uid(),mid:m.id,nom:n,serv:[m.fonction,m.sec].filter(Boolean).join(' · '),present:true,retard:false,arr:new Date().toTimeString().slice(0,5)})});persist();render();return}
   if(D.editmember){editMember=D.editmember;render();return}
   if(D.editdone!==undefined){editMember=null;render();return}

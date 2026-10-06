@@ -1,8 +1,8 @@
 /* AVA Bay — Suivi quotidien (démo) : données de référence */
 
-/* Points à vérifier chaque jour, en deux groupes : propreté des espaces et mise en place. */
+/* Contrôle des espaces : un seul bloc à l'écran, en deux sous-parties (propreté, mise en place). */
 const CHECKS=[
-  {id:'clean',title:'Propreté des espaces',tag:'Propreté',items:[
+  {id:'clean',title:'Propreté',tag:'Propreté',items:[
     ['clean-reception','Accueil / réception'],
     ['clean-changing','Vestiaires'],
     ['clean-toilets','Sanitaires'],
