@@ -626,7 +626,8 @@ function shiftDay(n){const d=new Date(day+'T12:00:00');d.setDate(d.getDate()+n);
 $('#prevDay').onclick=()=>shiftDay(-1);$('#nextDay').onclick=()=>shiftDay(1);
 function renderBnav(mkp){
   const cs=checkStats();if(mkp===undefined)mkp=mkPending();
-  $('#bnav').innerHTML=VIEWS.map(([id,l,ic])=>`<button data-nav="${id}" aria-selected="${view===id}" style="--pc:var(--accent);--pcs:var(--accent-soft)"><span class="ic">${ic}</span>${l}${id==='jour'&&cs.fix?`<span class="b">${cs.fix}</span>`:''}${id==='wa'&&mkp?`<span class="b">${mkp}</span>`:''}</button>`).join('');
+  const SHORT={fiches:'Clientes',base:'Base',cr:'Rapport'};
+  $('#bnav').innerHTML=VIEWS.map(([id,l,ic])=>`<button data-nav="${id}" aria-selected="${view===id}" aria-label="${l}" style="--pc:var(--accent);--pcs:var(--accent-soft)"><span class="ic">${ic}</span><span class="bl">${SHORT[id]||l}</span>${id==='jour'&&cs.fix?`<span class="b">${cs.fix}</span>`:''}${id==='wa'&&mkp?`<span class="b">${mkp}</span>`:''}</button>`).join('');
 }
 $('#bnav').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;go(b.dataset.nav)});
 

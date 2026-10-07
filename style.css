@@ -611,3 +611,26 @@ table.ca tr.total td{padding:9px 8px;font-weight:700;border-top:2px solid var(--
   .stepper button .k{width:20px;height:20px;font-size:11px;flex:none}
   .fnav .pill{flex:none}
 }
+/* icônes : taille fixe partout (évite les icônes géantes) */
+.chip svg{width:14px;height:14px;flex:none}
+.mkauto .perm>svg{width:22px;height:22px;flex:none}
+/* barre du bas : 5 onglets qui tiennent même sur les petits téléphones */
+@media(max-width:700px){
+  .bnav{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .bnav button{min-width:0;font-size:10.5px}
+  .bnav .bl{display:block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+}
+/* en-têtes de fiche et de campagne : le titre passe à la ligne au lieu de déborder */
+@media(max-width:700px){.fbh .ch h3{flex:1 1 100%!important;order:3;overflow-wrap:anywhere}}
+/* barre du haut sur petits téléphones : le logo garde sa place, la date se resserre */
+.brand{flex:none}
+@media(max-width:400px){
+  .top-in{gap:6px;padding:8px 10px}
+  .brand .mark{width:34px;height:34px}
+  .daterow{gap:2px;min-width:0;flex:1 1 auto;justify-content:center}
+  .daterow .iconbtn{width:30px;height:34px;flex:none}
+  .daterow input[type=date]{min-width:0;width:100%;max-width:150px;padding:6px 6px;font-size:13.5px}
+  .hdrR{gap:6px}
+  .hdrR .iconbtn{width:34px;height:34px}
+  .spacer{display:none}
+}
