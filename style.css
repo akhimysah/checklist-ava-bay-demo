@@ -566,3 +566,22 @@ table.ca tr.total td{padding:9px 8px;font-weight:700;border-top:2px solid var(--
 .toast b{display:block;font-size:14px}
 .toast span{font-size:12.5px;opacity:.8}
 @keyframes toastin{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+/* envoi à toutes */
+.addbtn.wa.big{font-size:15px;padding:13px 20px;justify-content:center}
+.addbtn.wa svg{width:18px;height:18px}
+.addbtn.wa.off{opacity:.45;pointer-events:auto;cursor:not-allowed}
+.seriesgo{display:grid;gap:8px;justify-items:start}
+.seriesgo .note{margin:0}
+.warnc{color:var(--urg);display:flex;gap:6px;align-items:center}.warnc svg{width:16px;height:16px;flex:none}
+.card.series{border:2px solid #25D366;box-shadow:var(--shadow)}
+.card.series.done{border-color:var(--ok)}
+.card.series h3 svg{width:20px;height:20px;vertical-align:-3px;color:var(--ok)}
+.sprog{display:block;height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.sprog i{display:block;height:100%;background:#25D366;transition:width .3s}
+.scl{display:flex;align-items:center;gap:12px}
+.scl .av{width:46px;height:46px;border-radius:50%;background:var(--pole-soft);color:var(--pole);font-family:var(--fd);font-weight:700;font-size:19px;display:grid;place-items:center;flex:none}
+.scl .nm{font-family:var(--fd);font-weight:600;font-size:22px;line-height:1.1}
+.scl .sub{font-size:13px;color:var(--ink-3)}
+.sbtns{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sbtns .addbtn{flex:1 1 240px}

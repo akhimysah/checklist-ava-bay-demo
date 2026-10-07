@@ -55,7 +55,7 @@ let db=null,dbUnsub=null,teamUnsub=null,clientsUnsub=null;
 let dirty=false,dirtyTeam=false,dirtyClients=false,writeTimer=null,writing=Promise.resolve(),lastEditAt=0;
 let photos={};try{photos=JSON.parse(localStorage.getItem(LS+'photos')||'{}')}catch(e){}
 /* WhatsApp marketing : campagnes, réglages des rappels, journal des envois (document partagé, comme la base clientes) */
-let mk=null,dirtyMk=false,mkUnsub=null,mkOpen=null;
+let mk=null,dirtyMk=false,mkUnsub=null,mkOpen=null,mkSeries=null;
 const MAX_PHOTOS=4;
 
 function blank(){return {regs:{staff:[],client:[]},checks:{items:{}},bilan:{note:''}}}
@@ -510,7 +510,19 @@ function renderCampaign(c){const s=mkStatus(c);const sample=s.aud[0]||{nom:'Pré
     <p class="note" style="margin:-6px 0 0">Chaque « Envoyer » ouvre WhatsApp avec le message personnalisé pour la cliente : il n'y a plus qu'à appuyer sur envoyer, puis revenir ici pour la suivante.</p>
     <div class="rcps">${rows||'<div class="empty">Aucune cliente joignable dans cette sélection.</div>'}</div>
     <div class="confirm" style="justify-content:flex-end"><button class="danger" data-mkdel="${c.id}">Supprimer la campagne</button></div></div>`;
-  return head+form+auds+list}
+  /* envoi à toutes : une cliente après l'autre, un message séparé et personnalisé pour chacune */
+  const pend=s.aud.filter(x=>!c.sent?.[x.id]&&!c.skip?.[x.id]);const holes=/\[[^\]]*\]/.test(c.msg||'');
+  const startBtn=pend.length?`<div class="seriesgo">${holes?`<p class="note warnc">${I.warn} Le message contient encore des [crochets] : remplace-les avant d'envoyer à toutes.</p>`:''}<button class="addbtn wa big ${holes?'off':''}" data-mkseries="${c.id}">${I.wa} Envoyer à toutes (${pend.length})</button><p class="note">Chaque cliente reçoit son propre message, avec son prénom. Un appui par cliente : WhatsApp s'ouvre, tu appuies sur envoyer, tu reviens ici et la suivante est prête.</p></div>`:'';
+  let series='';
+  if(mkSeries===c.id){if(pend.length){const x=pend[0];const k=s.sent+s.skip+1;
+    series=`<div class="card series" id="series"><div class="ch"><h3>Envoi à toutes · ${k}/${s.n}</h3><button class="pill" data-mkstop>Arrêter</button></div>
+      <span class="sprog"><i style="width:${(s.sent+s.skip)/s.n*100}%"></i></span>
+      <div class="scl"><span class="av">${esc(((x.nom||'?').trim()[0]||'?').toUpperCase())}</span><div><div class="nm">${esc(x.nom||'Sans nom')}${x.vip?' <span class="chip fix">VIP</span>':''}</div><div class="sub">${esc(waPretty(x.tel)||x.tel)}</div></div></div>
+      <pre class="preview-wa">${esc(mkText(c.msg,x))}</pre>
+      <div class="sbtns"><a class="addbtn wa big" href="${mkLink(x,c.msg)}" target="_blank" rel="noopener" data-mksend="${c.id}:${x.id}">${I.wa} Envoyer à ${esc(firstName(x)||x.nom||'cette cliente')}</a><button class="pill" data-mkskip="${c.id}:${x.id}">Passer</button></div>
+      <p class="note" style="margin:0">Encore ${pend.length} cliente${pend.length>1?'s':''} à envoyer, celle-ci comprise. Tu peux arrêter et reprendre plus tard : l'envoi reprend là où tu t'es arrêtée.</p></div>`}
+    else series=`<div class="card series done"><div class="ch"><h3>${I.check} Campagne envoyée</h3><button class="pill" data-mkstop>Fermer</button></div><p style="margin:0">${s.sent} message${s.sent>1?'s':''} envoyé${s.sent>1?'s':''}${s.skip?' · '+s.skip+' passée'+(s.skip>1?'s':''):''}.</p></div>`}
+  return head+series+(mkSeries===c.id?'':startBtn?`<div class="card">${startBtn}</div>`:'')+form+auds+list}
 
 /* ---------- événements (délégués) ---------- */
 const V=$('#view');
@@ -555,7 +567,9 @@ V.addEventListener('click',e=>{
   if(D.notif!==undefined){if(!('Notification' in window))return;Notification.requestPermission().then(p=>{render();if(p==='granted')notify('Notifications activées','Tu seras prévenue ici pour les campagnes programmées et les rappels du jour.','mk-on')});return}
   if(D.mknew!==undefined){const t0=WA_TEMPLATES[0];const c={id:uid(),name:'',tpl:t0.id,msg:t0.msg,aud:'all',when:'',sent:{},skip:{},created:nowLocal()};mk.campaigns.push(c);mkOpen=c.id;persistMk();render();window.scrollTo({top:0});const i=V.querySelector('input[data-mk=name]');i&&i.focus();return}
   if(D.mkopen){mkOpen=D.mkopen;render();window.scrollTo({top:0});return}
-  if(D.mkclose!==undefined){mkOpen=null;render();return}
+  if(D.mkclose!==undefined){mkOpen=null;mkSeries=null;render();return}
+  if(D.mkseries){if(b.classList.contains('off')){const n=V.querySelector('.warnc');if(n){n.style.fontWeight='700';n.scrollIntoView({block:'center',behavior:'smooth'})}return}mkSeries=D.mkseries;render();window.scrollTo({top:0});return}
+  if(D.mkstop!==undefined){mkSeries=null;render();return}
   if(D.mkaud){const c=mk.campaigns.find(x=>x.id===mkOpen);if(c){c.aud=D.mkaud;persistMk();render()}return}
   if(D.mkskip){const [cid,id]=D.mkskip.split(':');const c=mk.campaigns.find(x=>x.id===cid);const cl=clients.rows.find(x=>x.id===id);if(c&&cl){(c.skip=c.skip||{})[id]=nowLocal();mkLog({key:'camp:'+cid+':'+id,kind:'camp',camp:c.name,cid:id,nom:cl.nom,skipped:true});render()}return}
   if(D.rmskip){const [,kind,id]=D.rmskip.split(':');const cl=clients.rows.find(x=>x.id===id);mkLog({key:D.rmskip,kind,cid:id,nom:cl?.nom||'',skipped:true});render();return}
