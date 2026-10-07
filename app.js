@@ -171,7 +171,12 @@ function pStatus(r){if(!r)return '';if(r.np)return 'np';if(r.present===false)ret
 function staffStats(){const t={total:0,ok:0,late:0,abs:0,np:0,todo:0};team.rows.forEach(m=>{if(!fullName(m))return;t.total++;const q=pStatus(staffRow(m));if(q)t[q]++;else t.todo++});return t}
 
 /* ---------- rendu ---------- */
-function go(v){view=v;clientOpen=null;fiche=null;if(v!=='wa')mkOpen=null;render();window.scrollTo({top:0,behavior:'instant'})}
+/* liens directs vers un onglet : …/#whatsapp, #clientes, #base, #compte-rendu, #journee */
+const HASH={journee:'jour',clientes:'fiches',base:'base',whatsapp:'wa','compte-rendu':'cr'};
+function viewFromHash(){const h=decodeURIComponent(location.hash.slice(1)).toLowerCase();return HASH[h]||(VIEWS.some(x=>x[0]===h)?h:null)}
+function setHash(v){const k=Object.keys(HASH).find(k=>HASH[k]===v);try{history.replaceState(null,'',k&&v!=='jour'?'#'+k:location.pathname+location.search)}catch(e){}}
+window.addEventListener('hashchange',()=>{const v=viewFromHash();if(v&&v!==view)go(v)});
+function go(v){setHash(v);view=v;clientOpen=null;fiche=null;if(v!=='wa')mkOpen=null;render();window.scrollTo({top:0,behavior:'instant'})}
 function render(){
   $('#date').value=day;
   $('#teamlist').innerHTML=[...new Set(team.rows.map(fullName).filter(Boolean))].map(n=>`<option value="${esc(n)}">`).join('');
@@ -690,6 +695,7 @@ function start(){
   const t=ld(LS+'team')||ld('ava-team');if(t&&t.rows)team=t;
   const c=ld(LS+'clients')||ld('ava-clients');if(c&&c.rows)clients=c;
   const m=ld(LS+'marketing');if(m)mk=normMk(m);
+  const hv=viewFromHash();if(hv)view=hv;
   render();
   /* rappels et campagnes programmées : vérification à l'ouverture puis chaque minute */
   setTimeout(mkTick,1500);setInterval(mkTick,60000);
