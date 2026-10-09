@@ -6,7 +6,12 @@
    Usage manuel : php rapport.php dry 11   (affiche le message sans l'envoyer)
                   php rapport.php force 20 (envoie tout de suite le compte rendu de 20h) */
 if (php_sapi_name() !== 'cli') { http_response_code(404); exit; }
-date_default_timezone_set('Africa/Casablanca');
+/* Heure de Marrakech. Le Maroc est repassé à l'heure GMT (UTC+0) le 20 septembre 2026, mais la base de fuseaux
+   de PHP sur l'hébergement compte encore UTC+1 pour « Africa/Casablanca » : les e-mails partaient une heure trop tôt.
+   Le décalage est donc fixé ici. Si le Maroc change à nouveau d'heure, modifier uniquement ce chiffre
+   (nombre d'heures d'avance de Marrakech sur UTC : 0 aujourd'hui, 1 pour UTC+1). */
+$MAROC_UTC = 0;
+date_default_timezone_set($MAROC_UTC === 0 ? 'UTC' : 'Etc/GMT' . ($MAROC_UTC > 0 ? '-' : '+') . abs($MAROC_UTC));
 
 $TO   = ['i.fanni2416@gmail.com', 'Nikkkel@live.fr', 'n.guelli@oriionglobal.com'];
 $FROM = 'rapport@avabay-marrakech.com';
